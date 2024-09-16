@@ -1,0 +1,23 @@
+name: Test GitHub Actions Configuration
+
+# Controls when the action will run. In this case, it runs on every push and pull request.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# The list of jobs that will run as part of this workflow.
+jobs:
+  config-test:
+    runs-on: ubuntu-latest  # Defines the type of runner the job will run on.
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Simple step to confirm configuration is working.
+      - name: Validate GitHub Action Setup
+        run: echo "GitHub Action configuration is valid!"
