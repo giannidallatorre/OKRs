@@ -1,0 +1,12 @@
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+
+# Ignore virtual environment
+venv/
+
+# Ignore secrets file
+.github/.secrets
+
+# Ignore other sensitive files
+credentials.json
