@@ -41,12 +41,20 @@ class GoogleSheetsService:
 
             timestamp = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
             
-            # Check for valid VOs_complete_list
-            if not summary["VOs_complete_list"]:
-                raise ValueError("VOs_complete_list is empty or None")
-                
-            VOs_string = ', '.join([str(elem['VO name']) for elem in summary["VOs_complete_list"]])
-            NOVOs_string = ', '.join([str(item) for item in summary["noVOsCPUs"]])
+            # Distinguish between None (invalid) and empty list (no VOs)
+            if summary.get("VOs_complete_list") is None:
+                raise ValueError("VOs_complete_list is None")
+
+            # Build strings, use '-' when lists are empty
+            if summary.get("VOs_complete_list"):
+                VOs_string = ', '.join([str(elem.get('VO name')) for elem in summary["VOs_complete_list"]])
+            else:
+                VOs_string = '-'
+
+            if summary.get("noVOsCPUs"):
+                NOVOs_string = ', '.join([str(item) for item in summary["noVOsCPUs"]])
+            else:
+                NOVOs_string = '-'
 
             flag = False
             for item in worksheet_dicts:
