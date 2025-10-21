@@ -13,7 +13,7 @@ on:
 jobs:
   config-test:
     runs-on: ubuntu-latest  # Defines the type of runner the job will run on.
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
