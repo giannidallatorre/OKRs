@@ -22,3 +22,26 @@ Steps:
 4. Run the application or tests that need the service account.
 
 Security note: do NOT commit `.config/service_account.json` to Git. This repository's `.gitignore` already excludes the `.config/` directory.
+
+## Environment variables
+
+The project uses a few environment variables. These are typically set in files under `.config/` (for local development) or exported in your shell.
+
+Below are the variables found in the existing `.config` files and a short description for each:
+
+- SERVICE_ACCOUNT_FILE: Path to the local `service_account.json` file (e.g. `.config/service_account.json`).
+- LOG: Logging level used by the application (e.g. `INFO`, `DEBUG`).
+- DATE_FROM / DATE_TO: Reporting date range used by some accounting scripts.
+- SSL_CHECK: Toggle SSL checks (True/False) for HTTP requests.
+
+- ACCOUNTING_SERVER_URL: URL of the accounting server to fetch data from.
+- ACCOUNTING_SCOPE: Scope of accounting (`cloud` / `htc` etc.).
+- ACCOUNTING_METRIC: Metric to request from the accounting server.
+- ACCOUNTING_LOCAL_JOB_SELECTOR: Local job filter setting.
+- ACCOUNTING_VO_GROUP_SELECTOR: VO group selector used by the accounting API.
+- ACCOUNTING_DATA_SELECTOR: Data format expected from the accounting API (e.g. `JSON`).
+
+- GOOGLE_SHEET_NAME: Name of the Google Sheet used for reports.
+- GOOGLE_CLOUD_WORKSHEET / GOOGLE_HTC_WORKSHEET: Worksheet names inside the Google Sheet.
+
+If you add or change any of these variables locally, update your `.config/.env*` files accordingly.
