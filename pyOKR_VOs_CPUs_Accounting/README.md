@@ -21,8 +21,8 @@ Install the JSON file downloaded when you created a Google Service Account and r
   "universe_domain": "googleapis.com"
 }
 ```
-Ask [Giuseppe La Rocca](mailto:giuseppe.larocca@egi.eu) for a copy of this Google Service Account.
 
+Ask [Giuseppe La Rocca](mailto:giuseppe.larocca@egi.eu) for a copy of this Google Service Account.
 
 ## Calculate the Cloud CPU/h consumed in the specific period
 
@@ -123,3 +123,91 @@ Log Level = INFO
 ```
 
 The VO statistics are updated in the Google worksheet `Accounting HTC CPU/h`
+
+## Project Setup
+
+### 1. Install Poetry
+
+If you haven't installed Poetry yet, run the following command in your terminal:
+
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+### 2. Verify the Setup
+
+Run the following command to verify that everything is set up correctly:
+
+```bash
+poetry install
+
+
+This will install all the dependencies and set up the virtual environment.
+
+### 3. Run Tests
+
+You can run your tests using pytest:
+
+```bash
+poetry run pytest
+```
+
+### 4. Add new Dependencies
+
+Add any dependencies your project needs. For example:
+
+```bash
+poetry add gspread oauth2client requests
+```
+
+### 5. Add Development Dependencies
+
+Add development dependencies, such as pytest for testing:
+
+```bash
+poetry add --dev pytest
+```
+
+### Directory Structure
+
+```bash
+pyOKR_VOs_CPUs_Accounting
+├── src
+│   ├── pyOKR_VOs_CPUs_Accounting
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── controllers
+│   │   │   ├── __init__.py
+│   │   │   └── controller.py
+│   │   ├── routes
+│   │   │   ├── __init__.py
+│   │   │   └── routes.py
+│   │   ├── services
+│   │   │   ├── __init__.py
+│   │   │   └── service.py
+│   │   ├── utils
+│   │   │   ├── __init__.py
+│   │   │   └── utils.py
+│   │   ├── models
+│   │   │   ├── __init__.py
+│   │   │   └── model.py
+│   │   └── __init__.py
+├── tests
+│   ├── __init__.py
+│   ├── test_main.py
+│   ├── controllers
+│   │   ├── __init__.py
+│   │   └── test_controller.py
+│   ├── routes
+│   │   ├── __init__.py
+│   │   └── test_routes.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   └── test_service.py
+│   └── utils
+│       ├── __init__.py
+│       └── test_utils.py
+├── pyproject.toml
+├── poetry.lock
+└── README.md
+```
