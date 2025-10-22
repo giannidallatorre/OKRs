@@ -1,111 +1,72 @@
-Local configuration (service account)
+# Configuration (minimal)
 
-This short file explains where to place your Google service account JSON and
-Google service account file when running the tooling in this repository.
+Place your Google service account JSON locally (do NOT commit it):
 
-Where to keep the service account
+- Default location: `pyOKR_VOs_CPUs_Accounting/.config/service_account.json`
+- Template: `pyOKR_VOs_CPUs_Accounting/.config/service_account.json.template`
 
-- Default path (recommended): `pyOKR_VOs_CPUs_Accounting/.config/service_account.json`.
-- A template is provided: `pyOKR_VOs_CPUs_Accounting/.config/service_account.json.template`.
-- DO NOT commit `*.json` credentials to version control. The `.config/` folder is
-  excluded by `.gitignore`.
+Required environment variables (most common):
 
-Create the local service account file
+- `SERVICE_ACCOUNT_FILE` — path to service account JSON (default above)
+- `GOOGLE_SHEET_NAME` — target spreadsheet name
+- `GOOGLE_CLOUD_WORKSHEET`, `GOOGLE_HTC_WORKSHEET` — worksheet names
+- `ACCOUNTING_SERVER_URL`, `ACCOUNTING_SCOPE`, `ACCOUNTING_METRIC` — accounting API settings
+- `DATE_FROM`, `DATE_TO` — reporting period
 
-1. Copy the template (if present):
+Quick test/run
 
-   cp pyOKR_VOs_CPUs_Accounting/.config/service_account.json.template pyOKR_VOs_CPUs_Accounting/.config/service_account.json
+Use the repository venv or Poetry; example:
 
-2. Populate it with the values from your Google Cloud service account JSON.
+```bash
+./pyOKR_VOs_CPUs_Accounting/.venv/bin/python -m pytest -q
+```
 
-Common environment variables
+If you need a helper to copy the template into `.config/` without committing
+credentials, tell me and I'll add a small script.
+# Local config and service account
 
-- SERVICE_ACCOUNT_FILE: Path to the JSON file (default `.config/service_account.json`).
-- SERVICE_ACCOUNT_PATH: Optional directory containing the account file.
-- GOOGLE_SHEET_NAME: Spreadsheet name used by the Google Sheets integration.
-- GOOGLE_CLOUD_WORKSHEET / GOOGLE_HTC_WORKSHEET: Worksheet names inside the sheet.
-- ACCOUNTING_SERVER_URL, ACCOUNTING_SCOPE, ACCOUNTING_METRIC: Accounting API settings.
-- DATE_FROM, DATE_TO: Reporting period.
+This file documents how to create a `service_account.json` locally from the template without committing secrets.
 
-Run tests
+The `.config/` directory is excluded from version control. Copy the template or download the service account file from Google Cloud and place it in `.config/service_account.json`.
 
-- Use the project's venv or Poetry:
+Steps:
 
-  ./pyOKR_VOs_CPUs_Accounting/.venv/bin/python -m pytest -q
+1. Copy the template (if present) to the local config folder:
 
-If you'd like, I can add a helper script to create `.config/` from the template
-without copying credentials into the repo.
+   cp .config/service_account.json.template .config/service_account.json
 
-- Place your service account JSON at: `.config/service_account.json` relative to the
-  repository root (this path is the default used by tests and tooling).
+2. Alternatively, download the JSON key from the Google Cloud Console and save it as:
 
-Security note
+   .config/service_account.json
 
-- The repository intentionally does NOT track `pyOKR_VOs_CPUs_Accounting/.config/service_account.json`.
-- The file contains a private key and other credentials. Keep it out of version control.
+3. Set environment variables if needed:
 
-How to create the file from the template
+   export SERVICE_ACCOUNT_PATH="${PWD}/.config/"
+   export SERVICE_ACCOUNT_FILE="${SERVICE_ACCOUNT_PATH}service_account.json"
 
-1. Copy the template shipped with the repository:
-   - `cp pyOKR_VOs_CPUs_Accounting/.config/service_account.json.template pyOKR_VOs_CPUs_Accounting/.config/service_account.json`
-2. Populate the fields in the copied file with values from the Google service
-   account you create in your Cloud Console.
-3. Keep the file local and never commit it. The repository's `.gitignore` already
-   excludes `.config/service_account.json`.
+4. Run the application or tests that need the service account.
 
-Environment variables required (summary)
+Security note: do NOT commit `.config/service_account.json` to Git. This repository's `.gitignore` already excludes the `.config/` directory.
 
-- SERVICE_ACCOUNT_FILE: Path to the JSON file (default `.config/service_account.json`)
-- SERVICE_ACCOUNT_PATH: Directory path where the JSON can be found (optional)
-- GOOGLE_SHEET_NAME: Spreadsheet name used by the Google Sheets integration
-- GOOGLE_CLOUD_WORKSHEET / GOOGLE_HTC_WORKSHEET: Worksheet names
-- ACCOUNTING_SERVER_URL, ACCOUNTING_SCOPE, ACCOUNTING_METRIC, DATE_FROM, DATE_TO:
-  Required for the accounting data fetching
+## Environment variables
 
-Running tests locally
+The project uses a few environment variables. These are typically set in files under `.config/` (for local development) or exported in your shell.
 
-- Set up a Python virtual environment and install requirements (see `pyOKR_VOs_CPUs_Accounting/README.md`).
-- Ensure the service account file exists at the path configured in `SERVICE_ACCOUNT_FILE` or use the template.
-- Run tests with: `poetry run pytest -q` or the project's venv python: `./pyOKR_VOs_CPUs_Accounting/.venv/bin/python -m pytest -q`.
+Below are the variables found in the existing `.config` files and a short description for each:
 
-If you would like me to add extra helper scripts to create the `.config` folder and
-populate a safe sample (without secrets), say so and I will add them.
+- SERVICE_ACCOUNT_FILE: Path to the local `service_account.json` file (e.g. `.config/service_account.json`).
+- LOG: Logging level used by the application (e.g. `INFO`, `DEBUG`).
+- DATE_FROM / DATE_TO: Reporting date range used by some accounting scripts.
+- SSL_CHECK: Toggle SSL checks (True/False) for HTTP requests.
 
-# Local configuration (service account)
-
-This file explains where to keep your Google service account JSON locally and
-how to configure the basic environment variables used by the package.
-
-Quick summary
-
-- Keep the service account JSON out of version control. Default path used by the
-  code and tests: `pyOKR_VOs_CPUs_Accounting/.config/service_account.json`.
-- A template is provided at `pyOKR_VOs_CPUs_Accounting/.config/service_account.json.template`.
-- The repository root `CHANGELOG.md` contains project-level notes; use it for
-  release/change information.
-
-Create the local service account file
-
-1. Copy the template:
-
-   cp pyOKR_VOs_CPUs_Accounting/.config/service_account.json.template pyOKR_VOs_CPUs_Accounting/.config/service_account.json
-
-2. Populate the file with credentials from your Google Cloud service account.
-3. Ensure `.config/service_account.json` remains local and is NOT committed.
-
-Environment variables (commonly used)
-
-- SERVICE_ACCOUNT_FILE: Path to the service account JSON (default `.config/service_account.json`).
-- SERVICE_ACCOUNT_PATH: Optional directory containing the account file.
-- GOOGLE_SHEET_NAME, GOOGLE_CLOUD_WORKSHEET, GOOGLE_HTC_WORKSHEET: Google Sheets targets.
-- ACCOUNTING_SERVER_URL, ACCOUNTING_SCOPE, ACCOUNTING_METRIC, DATE_FROM, DATE_TO: Accounting data configuration.
-
-Run tests
-
-- Use the project's venv or Poetry to run tests. Example:
-
-  ./pyOKR_VOs_CPUs_Accounting/.venv/bin/python -m pytest -q
-
-If you'd like the file to be shorter or in a different location, tell me where
-and I will update it.
+- ACCOUNTING_SERVER_URL: URL of the accounting server to fetch data from.
 - ACCOUNTING_SCOPE: Scope of accounting (`cloud` / `htc` etc.).
+- ACCOUNTING_METRIC: Metric to request from the accounting server.
+- ACCOUNTING_LOCAL_JOB_SELECTOR: Local job filter setting.
+- ACCOUNTING_VO_GROUP_SELECTOR: VO group selector used by the accounting API.
+- ACCOUNTING_DATA_SELECTOR: Data format expected from the accounting API (e.g. `JSON`).
+
+- GOOGLE_SHEET_NAME: Name of the Google Sheet used for reports.
+- GOOGLE_CLOUD_WORKSHEET / GOOGLE_HTC_WORKSHEET: Worksheet names inside the Google Sheet.
+
+If you add or change any of these variables locally, update your `.config/.env*` files accordingly.
