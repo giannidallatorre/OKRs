@@ -23,7 +23,8 @@ Use the repository venv or Poetry; example:
 
 If you need a helper to copy the template into `.config/` without committing
 credentials, tell me and I'll add a small script.
-# Local config and service account
+
+## Local config and service account
 
 This file documents how to create a `service_account.json` locally from the template without committing secrets.
 
