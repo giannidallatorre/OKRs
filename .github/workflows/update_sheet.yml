@@ -23,7 +23,18 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Recreate service account file
+      run: |
+        mkdir -p ~/.config
+        echo "$SERVICE_ACCOUNT_BASE64" | base64 --decode > ~/.config/service_account.json
+      env:
+        SERVICE_ACCOUNT_BASE64: ${{ secrets.SERVICE_ACCOUNT_BASE64 }}
+
     - name: Google Sheets Service Orders Updater
       run: |
-        source pyOKR_ServiceOrders_Accounting/openrc.sh && python pyOKR_ServiceOrders_Accounting/pyOKR_ServiceOrders_Accounting_v0.4.py
+        source pyOKR_ServiceOrders_Accounting/openrc.sh
+        python pyOKR_ServiceOrders_Accounting/pyOKR_ServiceOrders_Accounting_v0.4.py
 
+    - name: Cleanup credentials
+      if: always()
+      run: rm -f ~/.config/service_account.json
