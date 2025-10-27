@@ -25,8 +25,8 @@ jobs:
 
     - name: Recreate service account file
       run: |
-        mkdir -p ~/.config
-        echo "$SERVICE_ACCOUNT_BASE64" | base64 --decode > ~/.config/service_account.json
+        mkdir -p ./.config
+        python3 -c "import os, base64; open('./.config/service_account.json','wb').write(base64.b64decode(os.environ['SERVICE_ACCOUNT_BASE64']))"
       env:
         SERVICE_ACCOUNT_BASE64: ${{ secrets.SERVICE_ACCOUNT_BASE64 }}
 
