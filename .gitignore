@@ -1,18 +1,13 @@
 # Ignore Python compiled files
 __pycache__/
-
-# Ignore environment variables
-.env
-
-# Local env/config for services (do not track secrets)
-pyOKR_VOs_CPUs_Accounting/.config/
+*.py[cod]
 
 # Test artifacts and coverage
 .pytest_cache/
 coverage.xml
 htmlcov/
 
-# Virtual envs created by various tools
+# Virtual environments
 .venv/
 env/
 venv/
@@ -21,18 +16,15 @@ venv/
 .vscode/
 .DS_Store
 
-# Python bytecode
-*.py[cod]
-
-# Ignore service account or env files that shouldn't be checked in
-pyOKR_VOs_CPUs_Accounting/.config/service_account.json
-pyOKR_VOs_CPUs_Accounting/.config/.env.*
-
-# Ignore virtual environment
-venv/
-
-# Ignore secrets file
+# Secrets and credentials
+.env
+.env.*
+credentials.json
 .github/.secrets
 
-# Ignore other sensitive files
-credentials.json
+# Service account files (sensitive)
+**/.config/service_account.json
+.config/service_account.json
+
+# But keep templates
+!**/.config/service_account.json.template
