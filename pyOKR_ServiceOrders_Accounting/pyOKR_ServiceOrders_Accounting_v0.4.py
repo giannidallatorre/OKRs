@@ -16,6 +16,7 @@
 #
 
 import gspread
+import gspreadutils
 import json
 import re
 import requests
@@ -35,22 +36,17 @@ __license__ = "Apache Licence v2.0"
 
 def init_GWorkSheet(env):
     """Initialise the GWorkSheet settings and return the worksheet"""
-
-    # Get the service account
-    account = gspread.service_account(env["SERVICE_ACCOUNT_FILE"])
-    # Open the GoogleSheet
-    sheet = account.open(env["GOOGLE_SHEET_NAME"])
-    # Open the Worksheet
-    worksheet = sheet.worksheet(env["GOOGLE_SERVICE_ORDERS_WORKSHEET"])
-
-    return worksheet
+    return gspreadutils.init_GWorkSheet(env)
 
 
 def update_GWorkSheet_Headers(env, worksheet, reporting_period):
-    """Insert new header in the worksheet (if not present)"""
-
+    """Insert new header in the worksheet (if not present)
+    
+    Returns:
+        bool: True if header already exists, False if header was added
+    """
     y_pos = 2
-    flag = True
+    header_exists = True
 
     worksheet_dicts = worksheet.get_all_records()
     for header in worksheet_dicts[0]:
@@ -64,9 +60,9 @@ def update_GWorkSheet_Headers(env, worksheet, reporting_period):
                 break
 
     if y_pos >= 2 or y_pos > len(worksheet_dicts[0]):
-        flag = False
+        header_exists = False
 
-    if not flag:
+    if not header_exists:
         print("Adding '%s' at column: %s" % (reporting_period, y_pos))
         worksheet.insert_cols(
             [[reporting_period]],
@@ -76,6 +72,8 @@ def update_GWorkSheet_Headers(env, worksheet, reporting_period):
         )
     else:
         print("The header '%s' is *already* in the Worksheet" % reporting_period)
+    
+    return header_exists
 
 
 def get_GWorkSheet_HeaderPosition(env, worksheet, reporting_period):
@@ -618,7 +616,12 @@ def main():
     worksheet = init_GWorkSheet(env)
 
     # Update the headers of the GWorkSheet (if necessary)
-    update_GWorkSheet_Headers(env, worksheet, reporting_period)
+    # Returns True if the header already exists
+    header_exists = update_GWorkSheet_Headers(env, worksheet, reporting_period)
+    
+    if header_exists:
+        print(colourise("yellow", "\n[SKIP]"), "Data for period %s already exists, skipping..." % reporting_period)
+        return 0
 
     # Retrieve the number of total issues of a given projectKey
     service_orders = getServiceOrders(env, service_orders)

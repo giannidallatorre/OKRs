@@ -1,40 +1,68 @@
-name: Scheduled EGI Service Orders Updater
+name: OKR ServiceOrders Accounting Python CI
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs at midnight (UTC) on the 7th of every month (01:00 CET or 02:00 CEST)
-  workflow_dispatch: # Allows manual trigger
+    - cron: '0 4 1 * *'  # At 04:00 on day-of-month 1
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        description: 'Debug mode - writes the service account JSON to a file'
+        required: false
+        default: 'false'
 
 jobs:
   update-sheet:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: pyOKR_ServiceOrders_Accounting
     steps:
-    - name: Checkout repository content
-      uses: actions/checkout@v2
-
+    - uses: actions/checkout@v4
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
-
+        python-version: '3.10'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Recreate service account file
+        if [ -f ../requirements.txt ]; then pip install -r ../requirements.txt; fi
+    - name: Setup Service Account
       run: |
-        mkdir -p ./.config
-        python3 -c "import os, base64; open('./.config/service_account.json','wb').write(base64.b64decode(os.environ['SERVICE_ACCOUNT_BASE64']))"
+        if [[ "${{ github.event.inputs.debug_enabled }}" == "true" ]]; then
+          echo "Debug mode enabled - will show directory structure"
+        fi
+        # Create config directory as expected by openrc.sh
+        mkdir -p .config
+        # Only write credentials if file doesn't exist or contains test credentials
+        if [ ! -f .config/service_account.json ] || grep -q "test-project" .config/service_account.json; then
+          # Attempt base64 decode first, fallback to direct write
+          echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' | base64 -d > .config/service_account.json 2>/dev/null || \
+          printf "%s" '${{ secrets.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
+        fi
+        # Basic validation
+        if ! python3 -c "import json; json.load(open('.config/service_account.json'))"; then
+          echo "ERROR: Invalid JSON format"
+          exit 1
+        fi
+        # Verify required fields
+        if ! python3 -c "import json,sys; d=json.load(open('.config/service_account.json')); sys.exit(0 if d.get('type')=='service_account' and '@' in d.get('client_email','') and d.get('private_key','').startswith('-----BEGIN') else 1)"; then
+          echo "ERROR: Invalid service account structure"
+          exit 1
+        fi
+    - name: Update Sheet
       env:
-        SERVICE_ACCOUNT_BASE64: ${{ secrets.SERVICE_ACCOUNT_BASE64 }}
-
-    - name: Google Sheets Service Orders Updater
+        SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
       run: |
-        source pyOKR_ServiceOrders_Accounting/openrc.sh
-        python pyOKR_ServiceOrders_Accounting/pyOKR_ServiceOrders_Accounting_v0.4.py
-
-    - name: Cleanup credentials
-      if: always()
-      run: rm -f ~/.config/service_account.json
+        if [[ "${{ github.event.inputs.debug_enabled }}" == "true" ]]; then
+          echo "Running in debug mode"
+          echo "Current directory: $PWD"
+        fi
+        source openrc.sh
+        # Debug service account setup
+        echo "Service account path: ${SERVICE_ACCOUNT_PATH}"
+        echo "Service account file: ${SERVICE_ACCOUNT_FILE}"
+        echo "Service account file contents:"
+        python3 -c 'import json,sys; d=json.load(open(".config/service_account.json")); print("Type: " + d["type"] + "\nProject ID: " + d["project_id"] + "\nClient Email: " + d["client_email"] + "\nPrivate Key (first 40 chars): " + d["private_key"][:40] + "...")'
+        python pyOKR_ServiceOrders_Accounting_v0.4.py
