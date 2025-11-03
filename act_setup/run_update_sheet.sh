@@ -23,17 +23,17 @@ else
     echo "Using test credentials..."
     # Use test credentials if file not found
     SERVICE_ACCOUNT_JSON='{
-        "type": "service_account",
-        "project_id": "test-project",
-        "private_key_id": "test-key-id",
-        "private_key": "-----BEGIN PRIVATE KEY-----\nTEST_PRIVATE_KEY\n-----END PRIVATE KEY-----",
-        "client_email": "test@test-project.iam.gserviceaccount.com",
-        "client_id": "test-client-id",
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test@test-project.iam.gserviceaccount.com",
-        "universe_domain": "googleapis.com"
+           "type": "service_account",
+           "project_id": "PLACEHOLDER_PROJECT_ID",
+           "private_key_id": "PLACEHOLDER_KEY_ID",
+           "private_key": "-----BEGIN PRIVATE KEY-----\nPLACEHOLDER_PRIVATE_KEY\n-----END PRIVATE KEY-----",
+           "client_email": "PLACEHOLDER@PROJECTID.iam.gserviceaccount.com",
+           "client_id": "PLACEHOLDER_CLIENT_ID",
+           "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+           "token_uri": "https://oauth2.googleapis.com/token",
+           "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+           "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/PLACEHOLDER@PROJECTID.iam.gserviceaccount.com",
+           "universe_domain": "googleapis.com"
     }'
 fi
 # Run workflow
