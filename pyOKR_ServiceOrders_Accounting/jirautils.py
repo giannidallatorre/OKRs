@@ -51,9 +51,23 @@ def getServiceOrders(env, orders):
     }
 
     curl = requests.get(url=_url, headers=headers)
-    orders = curl.json()
+    try:
+        orders = curl.json()
+    except ValueError:
+        print(colourise("red", "[ERROR]"), "Invalid JSON received from JIRA API")
+        print(colourise("red", "[DEBUG]"), curl.text)
+        return []
 
-    return(orders['issues'])
+    # Handle errors or unexpected responses gracefully
+    if not isinstance(orders, dict) or 'issues' not in orders:
+        # If JIRA returned an error payload, print it for diagnostics
+        if isinstance(orders, dict) and ('errorMessages' in orders or 'errors' in orders):
+            print(colourise("red", "[ERROR]"), "JIRA API returned an error:", orders)
+        else:
+            print(colourise("red", "[ERROR]"), "Unexpected response from JIRA API:", orders)
+        return []
+
+    return orders['issues']
 
 
 def getCustomersComplains(env, complains):
