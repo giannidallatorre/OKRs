@@ -26,6 +26,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         if [ -f ../requirements.txt ]; then pip install -r ../requirements.txt; fi
+        pip install pytest
     - name: Setup Service Account
       run: |
         if [[ "${{ github.event.inputs.debug_enabled }}" == "true" ]]; then
@@ -49,6 +50,17 @@ jobs:
           echo "ERROR: Invalid service account structure"
           exit 1
         fi
+        # mkdir -p .config
+        # # Write service account credentials
+        # if [ -n "${{ secrets.SERVICE_ACCOUNT_JSON }}" ]; then
+        #   echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' | base64 -d > .config/service_account.json 2>/dev/null || \
+        #   printf "%s" '${{ secrets.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
+        # else
+        #   # Fallback to template for local testing
+        #   cp ../act_setup/service_account.json.template .config/service_account.json
+        # fi
+        # # Run validation tests
+        # pytest tests/test_config.py -v
     - name: Update Sheet
       env:
         SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
@@ -58,11 +70,18 @@ jobs:
         if [[ "${{ github.event.inputs.debug_enabled }}" == "true" ]]; then
           echo "Running in debug mode"
           echo "Current directory: $PWD"
+          echo "Service account file:"
+          cat .config/service_account.json
+          echo "Environment variables:"
+          env | grep -E "GOOGLE|JIRA|SERVICE"
         fi
         source openrc.sh
-        # Debug service account setup
+          # Debug service account setup
         echo "Service account path: ${SERVICE_ACCOUNT_PATH}"
         echo "Service account file: ${SERVICE_ACCOUNT_FILE}"
         echo "Service account file contents:"
         python3 -c 'import json,sys; d=json.load(open(".config/service_account.json")); print("Type: " + d["type"] + "\nProject ID: " + d["project_id"] + "\nClient Email: " + d["client_email"] + "\nPrivate Key (first 40 chars): " + d["private_key"][:40] + "...")'
+        
+        # Test auth before running main script
+        python3 -c "import json, sys; from google.oauth2 import service_account; f = open('.config/service_account.json'); creds = service_account.Credentials.from_service_account_info(json.load(f), scopes=['https://www.googleapis.com/auth/spreadsheets']); f.close(); creds.get_access_token(); print('✅ Service account authentication successful')" || (echo '❌ Service account authentication failed' && exit 1)
         python pyOKR_ServiceOrders_Accounting_v0.4.py
