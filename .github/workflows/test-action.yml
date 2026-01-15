@@ -1,23 +1,36 @@
-name: Test GitHub Actions Configuration
+name: Test Suite
 
-# Controls when the action will run. In this case, it runs on every push and pull request.
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
   pull_request:
-    branches:
-      - main
+    branches: [ "main" ]
 
-# The list of jobs that will run as part of this workflow.
 jobs:
-  config-test:
-    runs-on: ubuntu-latest  # Defines the type of runner the job will run on.
+  test:
+    runs-on: ubuntu-latest
+    
+    env:
+        # Dummy values for tests that might require them (though mocks should handle it)
+        LOG: INFO
+        DATE_FROM: "2024/01"
+        DATE_TO: "2024/03"
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      # Simple step to confirm configuration is working.
-      - name: Validate GitHub Action Setup
-        run: echo "GitHub Action configuration is valid!"
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install pytest pytest-cov
+        
+    - name: Run tests
+      run: |
+        export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+        pytest tests/ --cov=src/egi_okr --cov-report=term-missing

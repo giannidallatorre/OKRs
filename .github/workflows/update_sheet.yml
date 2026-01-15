@@ -1,87 +1,121 @@
-name: OKR ServiceOrders Accounting Python CI
+name: OKR Accounting
 
 on:
   schedule:
-    - cron: '0 4 1 * *'  # At 04:00 on day-of-month 1
+    - cron: '0 4 1 * *'
   workflow_dispatch:
     inputs:
       debug_enabled:
-        description: 'Debug mode - writes the service account JSON to a file'
+        description: 'Debug mode'
         required: false
         default: 'false'
 
 jobs:
   update-sheet:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: pyOKR_ServiceOrders_Accounting
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        if [ -f ../requirements.txt ]; then pip install -r ../requirements.txt; fi
-        pip install pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        
     - name: Setup Service Account
+      if: env.SERVICE_ACCOUNT_JSON != ''
       run: |
-        if [[ "${{ github.event.inputs.debug_enabled }}" == "true" ]]; then
-          echo "Debug mode enabled - will show directory structure"
-        fi
-        # Create config directory as expected by openrc.sh
         mkdir -p .config
-        # Only write credentials if file doesn't exist or contains test credentials
-        if [ ! -f .config/service_account.json ] || grep -q "test-project" .config/service_account.json; then
-          # Attempt base64 decode first, fallback to direct write
-          echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' | base64 -d > .config/service_account.json 2>/dev/null || \
-          printf "%s" '${{ secrets.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
-        fi
-        # Basic validation
-        if ! python3 -c "import json; json.load(open('.config/service_account.json'))"; then
-          echo "ERROR: Invalid JSON format"
-          exit 1
-        fi
-        # Verify required fields
-        if ! python3 -c "import json,sys; d=json.load(open('.config/service_account.json')); sys.exit(0 if d.get('type')=='service_account' and '@' in d.get('client_email','') and d.get('private_key','').startswith('-----BEGIN') else 1)"; then
-          echo "ERROR: Invalid service account structure"
-          exit 1
-        fi
-        # mkdir -p .config
-        # # Write service account credentials
-        # if [ -n "${{ secrets.SERVICE_ACCOUNT_JSON }}" ]; then
-        #   echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' | base64 -d > .config/service_account.json 2>/dev/null || \
-        #   printf "%s" '${{ secrets.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
-        # else
-        #   # Fallback to template for local testing
-        #   cp ../act_setup/service_account.json.template .config/service_account.json
-        # fi
-        # # Run validation tests
-        # pytest tests/test_config.py -v
-    - name: Update Sheet
+        echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
       env:
         SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+
+    - name: Run Service Orders Accounting
+      env:
+        PYTHONPATH: src
+        SERVICE_ACCOUNT_FILE: .config/service_account.json
+        GOOGLE_ORDERS_WORKSHEET: ${{ vars.GOOGLE_ORDERS_WORKSHEET }}
         GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
         JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
+        JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL }}
+        SERVICE_ORDERS_PROJECTKEY: ${{ vars.SERVICE_ORDERS_PROJECTKEY }}
+        SERVICE_ORDERS_ISSUETYPE: "Service Order"
+        DATE_FROM: ${{ vars.DATE_FROM }}
+        DATE_TO: ${{ vars.DATE_TO }}
+        LOG: INFO
       run: |
-        if [[ "${{ github.event.inputs.debug_enabled }}" == "true" ]]; then
-          echo "Running in debug mode"
-          echo "Current directory: $PWD"
-          echo "Service account file:"
-          cat .config/service_account.json
-          echo "Environment variables:"
-          env | grep -E "GOOGLE|JIRA|SERVICE"
-        fi
-        source openrc.sh
-          # Debug service account setup
-        echo "Service account path: ${SERVICE_ACCOUNT_PATH}"
-        echo "Service account file: ${SERVICE_ACCOUNT_FILE}"
-        echo "Service account file contents:"
-        python3 -c 'import json,sys; d=json.load(open(".config/service_account.json")); print("Type: " + d["type"] + "\nProject ID: " + d["project_id"] + "\nClient Email: " + d["client_email"] + "\nPrivate Key (first 40 chars): " + d["private_key"][:40] + "...")'
-        
-        # Test auth before running main script
-        python3 -c "import json, sys; from google.oauth2 import service_account; f = open('.config/service_account.json'); creds = service_account.Credentials.from_service_account_info(json.load(f), scopes=['https://www.googleapis.com/auth/spreadsheets']); f.close(); creds.get_access_token(); print('✅ Service account authentication successful')" || (echo '❌ Service account authentication failed' && exit 1)
-        python pyOKR_ServiceOrders_Accounting_v0.4.py
+        python -m egi_okr.accounting_orders
+
+    - name: Run CPU Accounting
+      env:
+        PYTHONPATH: src
+        SERVICE_ACCOUNT_FILE: .config/service_account.json
+        GOOGLE_CLOUD_WORKSHEET: ${{ vars.GOOGLE_CLOUD_WORKSHEET }}
+        GOOGLE_HTC_WORKSHEET: ${{ vars.GOOGLE_HTC_WORKSHEET }}
+        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
+        ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
+        ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC }}
+        ACCOUNTING_LOCAL_JOB_SELECTOR: ${{ vars.ACCOUNTING_LOCAL_JOB_SELECTOR }}
+        ACCOUNTING_VO_GROUP_SELECTOR: ${{ vars.ACCOUNTING_VO_GROUP_SELECTOR }}
+        DATE_FROM: ${{ vars.DATE_FROM }}
+        DATE_TO: ${{ vars.DATE_TO }}
+        LOG: INFO
+      run: |
+        python -m egi_okr.accounting_cpus
+
+    - name: Run Users Accounting
+      env:
+        PYTHONPATH: src
+        SERVICE_ACCOUNT_FILE: .config/service_account.json
+        GOOGLE_VOS_WORKSHEET: ${{ vars.GOOGLE_VOS_WORKSHEET }}
+        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
+        OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+        OPERATIONS_VO_LIST_PREFIX: ${{ vars.OPERATIONS_VO_LIST_PREFIX }}
+        OPERATIONS_VO_ID_CARD_PREFIX: ${{ vars.OPERATIONS_VO_ID_CARD_PREFIX }}
+        DATE_FROM: ${{ vars.DATE_FROM }}
+        DATE_TO: ${{ vars.DATE_TO }}
+        LOG: INFO
+      run: |
+        python -m egi_okr.accounting_users
+
+    - name: Run VO Reports
+      env:
+        PYTHONPATH: src
+        SERVICE_ACCOUNT_FILE: .config/service_account.json
+        GOOGLE_VOS_REPORT_WORKSHEET: ${{ vars.GOOGLE_VOS_REPORT_WORKSHEET }}
+        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
+        OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+        OPERATIONS_VOS_REPORT_PREFIX: ${{ vars.OPERATIONS_VOS_REPORT_PREFIX }}
+        DATE_FROM: ${{ vars.DATE_FROM }}
+        DATE_TO: ${{ vars.DATE_TO }}
+        LOG: INFO
+      run: |
+        python -m egi_okr.vo_reports
+    
+    - name: Run SLA Accounting
+      env:
+        PYTHONPATH: src
+        SERVICE_ACCOUNT_FILE: .config/service_account.json
+        GOOGLE_SLAs_WORKSHEET: ${{ vars.GOOGLE_SLAs_WORKSHEET }}
+        GOOGLE_SLAs_CLOUD_WORKSHEET: ${{ vars.GOOGLE_SLAs_CLOUD_WORKSHEET }}
+        GOOGLE_SLAs_HTC_WORKSHEET: ${{ vars.GOOGLE_SLAs_HTC_WORKSHEET }}
+        GOOGLE_SLAs_SHEET_NAME: ${{ secrets.GOOGLE_SLAs_SHEET_NAME }}
+        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
+        ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
+        ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC }}
+        ACCOUNTING_LOCAL_JOB_SELECTOR: ${{ vars.ACCOUNTING_LOCAL_JOB_SELECTOR }}
+        ACCOUNTING_DATA_SELECTOR: ${{ vars.ACCOUNTING_DATA_SELECTOR }}
+        DATE_FROM: ${{ vars.DATE_FROM }}
+        DATE_TO: ${{ vars.DATE_TO }}
+        ACTIVE_SLAs_FILE: active_slas.json
+        LOG: INFO
+      run: |
+        python -m egi_okr.accounting_slas
