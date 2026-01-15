@@ -1,8 +1,10 @@
-gspread==6.1.2
-python_dateutil==2.9.0.post0
-Requests==2.32.3
+gspread>=6.1.2
+python-dateutil>=2.9.0
+requests>=2.32.3
 google-auth>=2.23.4
-google-auth-oauthlib==1.1.0
-pytest>=8.0.0
+google-auth-oauthlib>=1.1.0
 google-api-python-client>=2.0.0
 google-auth-httplib2>=0.2.0
+python-dotenv>=1.0.0
+pytest>=8.0.0
+pytest-cov>=4.1.0

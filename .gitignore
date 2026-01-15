@@ -28,3 +28,4 @@ credentials.json
 
 # But keep templates
 !**/.config/service_account.json.template
+!.env.template
