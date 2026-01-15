@@ -36,10 +36,15 @@ else
            "universe_domain": "googleapis.com"
     }'
 fi
-# Run workflow
+# Run workflow with mocked secrets and variables
 echo "Running workflow..."
 act --job update-sheet \
     --secret SERVICE_ACCOUNT_JSON="${SERVICE_ACCOUNT_JSON}" \
-    --secret GOOGLE_SHEET_NAME="test-sheet" \
+    --secret GOOGLE_SHEET_NAME="EGI_OKR_Test_Verify" \
     --secret JIRA_AUTH_TOKEN="test-token" \
+    --secret OPERATIONS_API_KEY="test-api-key" \
+    --var DATE_FROM="2024/01" \
+    --var DATE_TO="2024/03" \
+    --var JIRA_SERVER_URL="https://jira.example.com/" \
+    --var OPERATIONS_SERVER_URL="https://ops.example.com/" \
     --bind

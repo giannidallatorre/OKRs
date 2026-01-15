@@ -12,7 +12,8 @@ Test GitHub Actions workflows locally using [act](https://github.com/nektos/act)
 
    ```bash
    mkdir -p .config
-   cp /path/to/service_account.json .config/service_account.json
+   cp .config/service_account.json.template .config/service_account.json
+   # Edit .config/service_account.json with real credentials
    ```
 
 3. Run workflow:
