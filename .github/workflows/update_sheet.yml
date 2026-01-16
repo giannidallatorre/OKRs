@@ -27,12 +27,37 @@ jobs:
       PYTHONPATH: src
       SERVICE_ACCOUNT_FILE: .config/service_account.json
       SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-      DATE_FROM: ${{ vars.DATE_FROM }}
-      DATE_TO: ${{ vars.DATE_TO }}
       LOG: INFO
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Calculate Reporting Dates
+      id: dates
+      run: |
+        # Use provided variables if they exist, otherwise calculate last month
+        IFROM="${{ vars.DATE_FROM }}"
+        ITO="${{ vars.DATE_TO }}"
+        
+        if [ -z "$IFROM" ] || [ -z "$ITO" ]; then
+          echo "Dates missing or incomplete in vars. Calculating last month..."
+          # Format: YYYY/MM
+          LAST_MONTH_FROM=$(date -d "last month" +%Y/%m)
+          LAST_MONTH_TO=$(date -d "last month" +%Y/%m)
+          
+          # If on macOS (for local act tests on Mac), date command is different
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            LAST_MONTH_FROM=$(date -v-1m +%Y/%m)
+            LAST_MONTH_TO=$(date -v-1m +%Y/%m)
+          fi
+          
+          [ -z "$IFROM" ] && IFROM=$LAST_MONTH_FROM
+          [ -z "$ITO" ] && ITO=$LAST_MONTH_TO
+        fi
+        
+        echo "DATE_FROM=$IFROM" >> $GITHUB_ENV
+        echo "DATE_TO=$ITO" >> $GITHUB_ENV
+        echo "Calculated: $IFROM to $ITO"
     
     - name: Set up Python
       uses: actions/setup-python@v4
