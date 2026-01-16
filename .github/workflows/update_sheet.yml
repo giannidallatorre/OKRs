@@ -1,6 +1,11 @@
 name: OKR Accounting
 
 on:
+  push:
+    branches:
+      - github-actions
+    paths:
+      - 'src/egi_okr/**'
   schedule:
     - cron: '0 4 1 * *'
   workflow_dispatch:
@@ -13,6 +18,20 @@ on:
 jobs:
   update-sheet:
     runs-on: ubuntu-latest
+    env:
+      # Use production sheet only for scheduled runs.
+      # Push and Manual runs use the Test spreadsheet.
+      TARGET_SHEET: >-
+        ${{ github.event_name == 'schedule' 
+            && secrets.GOOGLE_SHEET_NAME 
+            || 'EGI_OKR_Test_Verify' }}
+      # Common environment variables
+      PYTHONPATH: src
+      SERVICE_ACCOUNT_FILE: .config/service_account.json
+      DATE_FROM: ${{ vars.DATE_FROM }}
+      DATE_TO: ${{ vars.DATE_TO }}
+      LOG: INFO
+
     steps:
     - uses: actions/checkout@v4
     
@@ -27,95 +46,68 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         
     - name: Setup Service Account
-      if: env.SERVICE_ACCOUNT_JSON != ''
+      if: secrets.SERVICE_ACCOUNT_JSON != ''
       run: |
         mkdir -p .config
         echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
-      env:
-        SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
 
     - name: Run Service Orders Accounting
       env:
-        PYTHONPATH: src
-        SERVICE_ACCOUNT_FILE: .config/service_account.json
         GOOGLE_ORDERS_WORKSHEET: ${{ vars.GOOGLE_ORDERS_WORKSHEET }}
-        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
         JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
         JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL }}
         SERVICE_ORDERS_PROJECTKEY: ${{ vars.SERVICE_ORDERS_PROJECTKEY }}
         SERVICE_ORDERS_ISSUETYPE: "Service Order"
-        DATE_FROM: ${{ vars.DATE_FROM }}
-        DATE_TO: ${{ vars.DATE_TO }}
-        LOG: INFO
       run: |
         python -m egi_okr.accounting_orders
 
     - name: Run CPU Accounting
       env:
-        PYTHONPATH: src
-        SERVICE_ACCOUNT_FILE: .config/service_account.json
         GOOGLE_CLOUD_WORKSHEET: ${{ vars.GOOGLE_CLOUD_WORKSHEET }}
         GOOGLE_HTC_WORKSHEET: ${{ vars.GOOGLE_HTC_WORKSHEET }}
-        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
         ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
         ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
         ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC }}
         ACCOUNTING_LOCAL_JOB_SELECTOR: ${{ vars.ACCOUNTING_LOCAL_JOB_SELECTOR }}
         ACCOUNTING_VO_GROUP_SELECTOR: ${{ vars.ACCOUNTING_VO_GROUP_SELECTOR }}
-        DATE_FROM: ${{ vars.DATE_FROM }}
-        DATE_TO: ${{ vars.DATE_TO }}
-        LOG: INFO
       run: |
         python -m egi_okr.accounting_cpus
 
     - name: Run Users Accounting
       env:
-        PYTHONPATH: src
-        SERVICE_ACCOUNT_FILE: .config/service_account.json
         GOOGLE_VOS_WORKSHEET: ${{ vars.GOOGLE_VOS_WORKSHEET }}
-        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
         OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
         OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
         OPERATIONS_VO_LIST_PREFIX: ${{ vars.OPERATIONS_VO_LIST_PREFIX }}
         OPERATIONS_VO_ID_CARD_PREFIX: ${{ vars.OPERATIONS_VO_ID_CARD_PREFIX }}
-        DATE_FROM: ${{ vars.DATE_FROM }}
-        DATE_TO: ${{ vars.DATE_TO }}
-        LOG: INFO
       run: |
         python -m egi_okr.accounting_users
 
     - name: Run VO Reports
       env:
-        PYTHONPATH: src
-        SERVICE_ACCOUNT_FILE: .config/service_account.json
         GOOGLE_VOS_REPORT_WORKSHEET: ${{ vars.GOOGLE_VOS_REPORT_WORKSHEET }}
-        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
         OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
         OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
         OPERATIONS_VOS_REPORT_PREFIX: ${{ vars.OPERATIONS_VOS_REPORT_PREFIX }}
-        DATE_FROM: ${{ vars.DATE_FROM }}
-        DATE_TO: ${{ vars.DATE_TO }}
-        LOG: INFO
       run: |
         python -m egi_okr.vo_reports
     
     - name: Run SLA Accounting
       env:
-        PYTHONPATH: src
-        SERVICE_ACCOUNT_FILE: .config/service_account.json
         GOOGLE_SLAs_WORKSHEET: ${{ vars.GOOGLE_SLAs_WORKSHEET }}
         GOOGLE_SLAs_CLOUD_WORKSHEET: ${{ vars.GOOGLE_SLAs_CLOUD_WORKSHEET }}
         GOOGLE_SLAs_HTC_WORKSHEET: ${{ vars.GOOGLE_SLAs_HTC_WORKSHEET }}
         GOOGLE_SLAs_SHEET_NAME: ${{ secrets.GOOGLE_SLAs_SHEET_NAME }}
-        GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
         ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
         ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
         ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC }}
         ACCOUNTING_LOCAL_JOB_SELECTOR: ${{ vars.ACCOUNTING_LOCAL_JOB_SELECTOR }}
         ACCOUNTING_DATA_SELECTOR: ${{ vars.ACCOUNTING_DATA_SELECTOR }}
-        DATE_FROM: ${{ vars.DATE_FROM }}
-        DATE_TO: ${{ vars.DATE_TO }}
         ACTIVE_SLAs_FILE: active_slas.json
-        LOG: INFO
       run: |
         python -m egi_okr.accounting_slas
