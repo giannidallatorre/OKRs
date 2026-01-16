@@ -21,13 +21,11 @@ jobs:
     env:
       # Use production sheet only for scheduled runs.
       # Push and Manual runs use the Test spreadsheet.
-      TARGET_SHEET: >-
-        ${{ github.event_name == 'schedule' 
-            && secrets.GOOGLE_SHEET_NAME 
-            || 'EGI_OKR_Test_Verify' }}
+      GOOGLE_SHEET_NAME: ${{ github.event_name == 'schedule' && secrets.GOOGLE_SHEET_NAME || 'EGI_OKR_Test_Verify' }}
       # Common environment variables
       PYTHONPATH: src
       SERVICE_ACCOUNT_FILE: .config/service_account.json
+      SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
       DATE_FROM: ${{ vars.DATE_FROM }}
       DATE_TO: ${{ vars.DATE_TO }}
       LOG: INFO
@@ -46,15 +44,15 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         
     - name: Setup Service Account
-      if: secrets.SERVICE_ACCOUNT_JSON != ''
+      if: env.SERVICE_ACCOUNT_JSON != ''
       run: |
         mkdir -p .config
-        echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
+        echo '${{ env.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
 
     - name: Run Service Orders Accounting
       env:
         GOOGLE_ORDERS_WORKSHEET: ${{ vars.GOOGLE_ORDERS_WORKSHEET }}
-        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
+        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
         JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL }}
         SERVICE_ORDERS_PROJECTKEY: ${{ vars.SERVICE_ORDERS_PROJECTKEY }}
@@ -66,7 +64,7 @@ jobs:
       env:
         GOOGLE_CLOUD_WORKSHEET: ${{ vars.GOOGLE_CLOUD_WORKSHEET }}
         GOOGLE_HTC_WORKSHEET: ${{ vars.GOOGLE_HTC_WORKSHEET }}
-        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
+        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
         ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
         ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC }}
@@ -78,7 +76,7 @@ jobs:
     - name: Run Users Accounting
       env:
         GOOGLE_VOS_WORKSHEET: ${{ vars.GOOGLE_VOS_WORKSHEET }}
-        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
+        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
         OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
         OPERATIONS_VO_LIST_PREFIX: ${{ vars.OPERATIONS_VO_LIST_PREFIX }}
@@ -89,7 +87,7 @@ jobs:
     - name: Run VO Reports
       env:
         GOOGLE_VOS_REPORT_WORKSHEET: ${{ vars.GOOGLE_VOS_REPORT_WORKSHEET }}
-        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
+        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
         OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
         OPERATIONS_VOS_REPORT_PREFIX: ${{ vars.OPERATIONS_VOS_REPORT_PREFIX }}
@@ -102,7 +100,7 @@ jobs:
         GOOGLE_SLAs_CLOUD_WORKSHEET: ${{ vars.GOOGLE_SLAs_CLOUD_WORKSHEET }}
         GOOGLE_SLAs_HTC_WORKSHEET: ${{ vars.GOOGLE_SLAs_HTC_WORKSHEET }}
         GOOGLE_SLAs_SHEET_NAME: ${{ secrets.GOOGLE_SLAs_SHEET_NAME }}
-        GOOGLE_SHEET_NAME: ${{ env.TARGET_SHEET }}
+        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
         ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
         ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC }}
