@@ -154,36 +154,36 @@ class SLAsAccounting:
         # Check Period Row
         period_pos, found = self.get_cell_position(worksheet, reporting_period)
         if not found:
-             print(colourise("cyan", "\n[INFO]"), f"Adding period {reporting_period} at row {period_pos}")
-             worksheet.insert_row([reporting_period, 0], index=period_pos)
+            print(colourise("cyan", "\n[INFO]"), f"Adding period {reporting_period} at row {period_pos}")
+            worksheet.insert_row([reporting_period, 0], index=period_pos)
         else:
-             print(colourise("green", "\n[INFO]"), f"Period found at row {period_pos}")
+            print(colourise("green", "\n[INFO]"), f"Period found at row {period_pos}")
              
         total_cpu = 0
         
         print(colourise("green", "\n[INFO]"), "Fetching accounting records...")
         
         # Iterate SLAs
-         for vo in slas:
-              # Check if the reporting period is within the SLA start and end dates.
-              # Note: Assumes compatible date string formats.
+        for vo in slas:
+            # Check if the reporting period is within the SLA start and end dates.
+            # Note: Assumes compatible date string formats.
              
-             if self.env['ACCOUNTING_SCOPE'] in vo['Type'] and \
-                self.env['DATE_FROM'] >= vo['SLA_start'] and \
-                self.env['DATE_TO'] <= vo['SLA_end']:
+            if self.env['ACCOUNTING_SCOPE'] in vo['Type'] and \
+               self.env['DATE_FROM'] >= vo['SLA_start'] and \
+               self.env['DATE_TO'] <= vo['SLA_end']:
                 
                 data = self.fetch_vo_accounting(vo['Name'])
                 if data:
-                     for record in data:
-                         if "Total" in record['id']:
-                              val = record['Total']
-                              total_cpu += val
+                    for record in data:
+                        if "Total" in record['id']:
+                            val = record['Total']
+                            total_cpu += val
                               
-                              # Update Sheet
-                              print(f"- {vo['Name']}: {val}")
+                            # Update Sheet
+                            print(f"- {vo['Name']}: {val}")
                               
-                              vo_col = self.get_vo_col_position(worksheet, vo['Name'])
-                              worksheet.update_cell(period_pos, vo_col, val)
+                            vo_col = self.get_vo_col_position(worksheet, vo['Name'])
+                            worksheet.update_cell(period_pos, vo_col, val)
         
         # Update Total
         print(colourise("cyan", "\n[REPORT]"), f"Total CPU: {total_cpu}")
