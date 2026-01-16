@@ -69,6 +69,8 @@ class SLAsAccounting:
                      else:
                          break
         
+        return pos, False
+
     def ensure_vo_column(self, worksheet, vo_name):
         """Find or insert VO column."""
         vo_col, found = self.get_vo_col_position(worksheet, vo_name)
@@ -129,13 +131,12 @@ class SLAsAccounting:
         
         try:
              response = requests.get(url, verify=True)
-             if response.status_code == 200:
-                 try:
-                     return response.json()
-                 except: return None
-        except:
+             response.raise_for_status()
+             return response.json()
+        except Exception as e:
+             if self.env.get('LOG') == "DEBUG":
+                  print(colourise("red", "[ERROR]"), f"Failed to fetch accounting for {vo_name}: {e}")
              return None
-        return None
 
     def main(self):
         log_level = self.env.get('LOG', 'INFO')

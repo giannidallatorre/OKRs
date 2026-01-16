@@ -50,9 +50,9 @@ class CPUAccounting:
             data = response.json()
             logging.debug(f"Response content: {data}")
             return data
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             logging.error(f"[ERROR] - Failed to fetch accounting data: {e}")
-            raise RuntimeError(f"[ERROR] - Failed to fetch accounting data: {e}")
+            return []
 
     def is_valid_record(self, record):
         ''' Check if the record is valid '''

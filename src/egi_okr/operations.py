@@ -42,9 +42,14 @@ def get_VOs_report(env):
         + "&format=json"
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-    curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
+    try:
+        curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
+        curl.raise_for_status()
+        response = curl.json()
+    except Exception as e:
+        print(colourise("red", "[ERROR]"), f"Failed to fetch VO report: {e}")
+        return []
 
-    response = curl.json()
     VOs_report = []
 
     if response:
@@ -94,11 +99,13 @@ def get_VO_metadata(index, env, vo_name):
             + "/" + vo_name + "/" + env['OPERATIONS_FORMAT']
  
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-    curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
-    
     try:
+        curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
+        curl.raise_for_status()
         response = curl.json()
-    except Exception:
+    except Exception as e:
+        if env.get('LOG') == "DEBUG":
+            print(colourise("red", "[ERROR]"), f"Failed to fetch VO metadata for {vo_name}: {e}")
         return "N/A", "N/A", index
 
     if response:
@@ -140,8 +147,11 @@ def get_VO_stats(env, vo):
     curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
 
     try:
+        curl.raise_for_status()
         response = curl.json()
-    except Exception:
+    except Exception as e:
+        if env.get('LOG') == "DEBUG":
+            print(colourise("red", "[ERROR]"), f"API failure: {e}")
         return []
 
     vo_stats = []
@@ -190,8 +200,10 @@ def get_VOs_stats(env):
     curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
 
     try:
+        curl.raise_for_status()
         response = curl.json()
-    except Exception:
+    except Exception as e:
+        print(colourise("red", "[ERROR]"), f"API failure fetching VOs list: {e}")
         return []
 
     vo_details = []
@@ -252,16 +264,14 @@ def get_VO_users(env, vo):
             + "&vo=" + vo
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-    curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
-
     users = "0"
-    if (curl.status_code == 200):
-        try:
-           response = curl.json()
-           if response.get('users') is not None:
+    try:
+        curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
+        curl.raise_for_status()
+        response = curl.json()
+        if response.get('users') is not None:
               users = response['users'][0]['total']
-              # Logging omitted for brevity unless DEBUG
-        except (requests.exceptions.JSONDecodeError, KeyError):
-             pass
+    except Exception:
+         pass
     
     return users
