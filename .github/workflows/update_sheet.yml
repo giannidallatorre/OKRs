@@ -30,6 +30,7 @@ jobs:
       SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
       LOG: INFO
       OPERATIONS_FORMAT: json
+      SSL_CHECK: 'False'
       
       # Default Server URLs (can be overridden by vars)
       JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL || 'https://jira.egi.eu/' }}
@@ -131,7 +132,7 @@ jobs:
         GOOGLE_SLAs_WORKSHEET: ${{ vars.GOOGLE_SLAs_WORKSHEET || 'SLAs' }}
         GOOGLE_SLAs_CLOUD_WORKSHEET: ${{ vars.GOOGLE_SLAs_CLOUD_WORKSHEET || 'CloudReport' }}
         GOOGLE_SLAs_HTC_WORKSHEET: ${{ vars.GOOGLE_SLAs_HTC_WORKSHEET || 'HTCReport' }}
-        GOOGLE_SLAs_SHEET_NAME: ${{ secrets.GOOGLE_SLAs_SHEET_NAME }}
+        GOOGLE_SLAs_SHEET_NAME: ${{ secrets.GOOGLE_SLAs_SHEET_NAME || env.GOOGLE_SHEET_NAME }}
         GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         ACTIVE_SLAs_FILE: active_slas.json
       run: |

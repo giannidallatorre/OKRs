@@ -44,8 +44,9 @@ class CPUAccounting:
         headers = {"Accept": "application/json"}
         logging.debug(f"Fetching accounting records from: {_url}")
 
+        verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
         try:
-            response = requests.get(url=_url, headers=headers, verify=True)
+            response = requests.get(url=_url, headers=headers, verify=verify_ssl)
             response.raise_for_status()
             data = response.json()
             logging.debug(f"Response content: {data}")

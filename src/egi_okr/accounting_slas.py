@@ -129,8 +129,9 @@ class SLAsAccounting:
     def fetch_vo_accounting(self, vo_name):
         url = f"{self.env['ACCOUNTING_SERVER_URL']}/{self.env['ACCOUNTING_SCOPE']}/{self.env['ACCOUNTING_METRIC']}/REGION/Year/{self.env['DATE_FROM']}/{self.env['DATE_TO']}/custom-{vo_name}/{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/{self.env['ACCOUNTING_DATA_SELECTOR']}/{self.env['ACCOUNTING_DATA_SELECTOR']}/"
         
+        verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
         try:
-             response = requests.get(url, verify=True)
+             response = requests.get(url, verify=verify_ssl)
              response.raise_for_status()
              return response.json()
         except Exception as e:

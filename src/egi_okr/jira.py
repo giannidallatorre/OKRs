@@ -26,21 +26,21 @@ def get_service_orders(env):
     start = (env['DATE_FROM'].replace("/", "-")) + "-01"
     end = (env['DATE_TO'].replace("/", "-")) + "-01"
 
-    _url = env['JIRA_SERVER_URL'] \
-            + "rest/api/latest/search?jql=project%3D" \
-            + env['SERVICE_ORDERS_PROJECTKEY'] \
-            + "+AND+created+%3E%3D+" + start \
-            + "+AND+created+%3C%3D+" + end \
-            + "&maxResults%3D1000" \
-            + " ORDER BY key DESC, priority DESC, updated DESC"
+    jql = f"project={env['SERVICE_ORDERS_PROJECTKEY']} AND created >= '{start}' AND created <= '{end}' ORDER BY key DESC, priority DESC, updated DESC"
+    _url = f"{env['JIRA_SERVER_URL']}rest/api/latest/search"
+    params = {
+        "jql": jql,
+        "maxResults": 1000
+    }
 
     headers = {
-            "Accept": "Application/json",
+            "Accept": "application/json",
             "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
     }
 
     try:
-        response = requests.get(url=_url, headers=headers)
+        verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
+        response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         response.raise_for_status()
         orders = response.json()
     except Exception as e:
@@ -63,21 +63,22 @@ def get_customers_complains(env):
     start = (env['DATE_FROM'].replace("/", "-")) + "-01"
     end = (env['DATE_TO'].replace("/", "-")) + "-01"
 
-    _url = env['JIRA_SERVER_URL'] \
-            + "rest/api/latest/search?jql=project=" \
-            + env['COMPLAINS_PROJECTKEY'] \
-            + "&Complain=Yes" \
-            + "&created>=" + start \
-            + "&created<=" + end \
-            + "&maxResults=10000" 
+    jql = f"project={env['COMPLAINS_PROJECTKEY']} AND Complain=Yes AND created >= '{start}' AND created <= '{end}'"
+    _url = f"{env['JIRA_SERVER_URL']}rest/api/latest/search"
+    params = {
+        "jql": jql,
+        "maxResults": 10000
+    }
     
     headers = {
-            "Accept": "Application/json",
+            "Accept": "application/json",
             "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
     }
 
     try:
-        response = requests.get(url=_url, headers=headers)
+        verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
+        response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        response.raise_for_status()
         data = response.json()
     except Exception as e:
         logging.error(f"[ERROR] Failed to fetch JIRA complains: {e}")
@@ -109,8 +110,9 @@ def get_complain_details(env, issue_key):
        "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
     }
 
+    verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        response = requests.get(url=_url, headers=headers)
+        response = requests.get(url=_url, headers=headers, verify=verify_ssl)
         issue_details = response.json()
     except Exception:
         return None
@@ -149,22 +151,21 @@ def get_sla_violations(env):
     start = (env['DATE_FROM'].replace("/", "-")) + "-01"
     end = (env['DATE_TO'].replace("/", "-")) + "-01"
 
-    _url = env['JIRA_SERVER_URL'] \
-            + "rest/api/latest/search?jql=project=" \
-            + env['VIOLATIONS_PROJECTKEY'] \
-            + "&issueType=" + env['ISSUETYPE'] \
-            + "&resolution=Unresolved" \
-            + "&created>=" + start \
-            + "&created<=" + end \
-            + " ORDER BY priority DESC, updated DESC"
+    jql = f"project={env['VIOLATIONS_PROJECTKEY']} AND issueType='{env['ISSUETYPE']}' AND resolution=Unresolved AND created >= '{start}' AND created <= '{end}' ORDER BY priority DESC, updated DESC"
+    _url = f"{env['JIRA_SERVER_URL']}rest/api/latest/search"
+    params = {
+        "jql": jql
+    }
 
     headers = {
-        "Accept": "Application/json",
+        "Accept": "application/json",
         "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
     }
 
     try:
-        response = requests.get(url=_url, headers=headers)
+        verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
+        response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        response.raise_for_status()
         data = response.json()
     except Exception:
         return []
@@ -192,8 +193,9 @@ def get_sla_violation_details(env, issue_key):
         "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
     }
 
+    verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        response = requests.get(url=_url, headers=headers)
+        response = requests.get(url=_url, headers=headers, verify=verify_ssl)
         issue_details = response.json()
     except Exception:
         return None

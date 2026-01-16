@@ -45,16 +45,17 @@ def get_VOs_report(env):
 
     headers = get_operations_headers(env)
 
-    _url = env['OPERATIONS_SERVER_URL'] \
-        + env['OPERATIONS_VOS_REPORT_PREFIX'] \
-        + "/vo?" \
-        + "start_date=" + start \
-        + "&end_date=" + end \
-        + "&format=json"
+    # Use /egi-reports/vo as the correct endpoint
+    _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo"
+    params = {
+        "start_date": start,
+        "end_date": end,
+        "format": "json"
+    }
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
+        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
@@ -102,13 +103,14 @@ def get_VO_metadata(index, env, vo_name):
     publicationsURL = ""
     statement = ""
 
-    _url = env['OPERATIONS_SERVER_URL'] \
-            + env['OPERATIONS_VO_ID_CARD_PREFIX'] \
-            + "/" + vo_name + "/" + env['OPERATIONS_FORMAT']
+    _url = f"{env['OPERATIONS_SERVER_URL']}{env['OPERATIONS_VO_ID_CARD_PREFIX']}/{vo_name}"
+    params = {
+        "format": env.get('OPERATIONS_FORMAT', 'json')
+    }
  
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
+        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
@@ -144,14 +146,14 @@ def get_VO_stats(env, vo):
     '''
     headers = get_operations_headers(env)
 
-    _url = env['OPERATIONS_SERVER_URL'] \
-            + env['OPERATIONS_VO_LIST_PREFIX'] \
-            + "/" + env['OPERATIONS_FORMAT']
+    _url = f"{env['OPERATIONS_SERVER_URL']}{env['OPERATIONS_VO_LIST_PREFIX']}"
+    params = {
+        "format": env.get('OPERATIONS_FORMAT', 'json')
+    }
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-    curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
-
     try:
+        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
@@ -194,14 +196,14 @@ def get_VOs_stats(env):
     '''
     headers = get_operations_headers(env)
 
-    _url = env['OPERATIONS_SERVER_URL'] \
-            + env['OPERATIONS_VO_LIST_PREFIX'] \
-            + "/" + env['OPERATIONS_FORMAT']
+    _url = f"{env['OPERATIONS_SERVER_URL']}{env['OPERATIONS_VO_LIST_PREFIX']}"
+    params = {
+        "format": env.get('OPERATIONS_FORMAT', 'json')
+    }
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-    curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
-
     try:
+        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
@@ -255,17 +257,18 @@ def get_VO_users(env, vo):
     '''
     headers = get_operations_headers(env)
 
-    _url = env['OPERATIONS_SERVER_URL'] \
-            + env['OPERATIONS_VOS_REPORT_PREFIX'] \
-            + "/vo-users?start_date=" + env['DATE_FROM'].replace("/","-") \
-            + "&end_date=" + env['DATE_TO'].replace("/","-") \
-            + "&format=" + env['OPERATIONS_FORMAT'] \
-            + "&vo=" + vo
+    _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo-users"
+    params = {
+        "start_date": env['DATE_FROM'].replace("/","-"),
+        "end_date": env['DATE_TO'].replace("/","-"),
+        "format": env.get('OPERATIONS_FORMAT', 'json'),
+        "vo": vo
+    }
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     users = "0"
     try:
-        curl = requests.get(url=_url, headers=headers, verify=verify_ssl)
+        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
         if response.get('users') is not None:
