@@ -17,7 +17,21 @@
 
 import requests
 import json
-from .utils import colourise
+from .utils import colourise, get_checkin_access_token
+
+def get_operations_headers(env):
+    """Construct headers for Operations Portal API, supporting both X-API-Key and Bearer token."""
+    access_token = get_checkin_access_token(env)
+    if access_token:
+        return {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {access_token}"
+        }
+    
+    return {
+         "Accept": "application/json",
+         "X-API-Key": env.get('OPERATIONS_API_KEY', '')
+    }
 
 def get_VOs_report(env):
     '''
@@ -29,10 +43,7 @@ def get_VOs_report(env):
     start = (env['DATE_FROM'].replace("/", "-")) + "-01"
     end = (env['DATE_TO'].replace("/", "-")) + "-01"
 
-    headers = {
-         "Accept": "Application/json",
-         "X-API-Key": env['OPERATIONS_API_KEY']
-    }
+    headers = get_operations_headers(env)
 
     _url = env['OPERATIONS_SERVER_URL'] \
         + env['OPERATIONS_VOS_REPORT_PREFIX'] \
@@ -86,10 +97,7 @@ def get_VO_metadata(index, env, vo_name):
          * `/vo-idcard/{vo_name}/{_format}`
     '''
 
-    headers = {
-         "Accept": "Application/json",
-         "X-API-Key": env['OPERATIONS_API_KEY']
-    }
+    headers = get_operations_headers(env)
 
     publicationsURL = ""
     statement = ""
@@ -134,10 +142,7 @@ def get_VO_stats(env, vo):
     '''
        Returns the statistics of the production VO with minimal information
     '''
-    headers = {
-         "Accept": "Application/json",
-         "X-API-Key": env['OPERATIONS_API_KEY']
-    }
+    headers = get_operations_headers(env)
 
     _url = env['OPERATIONS_SERVER_URL'] \
             + env['OPERATIONS_VO_LIST_PREFIX'] \
@@ -187,10 +192,7 @@ def get_VOs_stats(env):
     '''
        Returns the list of productions VOs with minimal information
     '''
-    headers = {
-         "Accept": "Application/json",
-         "X-API-Key": env['OPERATIONS_API_KEY']
-    }
+    headers = get_operations_headers(env)
 
     _url = env['OPERATIONS_SERVER_URL'] \
             + env['OPERATIONS_VO_LIST_PREFIX'] \
@@ -251,10 +253,7 @@ def get_VO_users(env, vo):
     '''
        Returns the num. of users of the production VO in the specific period
     '''
-    headers = {
-         "Accept": "Application/json",
-         "X-API-Key": env['OPERATIONS_API_KEY']
-    }
+    headers = get_operations_headers(env)
 
     _url = env['OPERATIONS_SERVER_URL'] \
             + env['OPERATIONS_VOS_REPORT_PREFIX'] \

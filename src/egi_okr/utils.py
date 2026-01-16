@@ -131,7 +131,10 @@ def get_env_settings():
 
         # Accounting Portal
         'ACCOUNTING_SERVER_URL', 'ACCOUNTING_SCOPE', 'ACCOUNTING_METRIC',
-        'ACCOUNTING_LOCAL_JOB_SELECTOR', 'ACCOUNTING_VO_GROUP_SELECTOR', 'ACCOUNTING_DATA_SELECTOR'
+        'ACCOUNTING_LOCAL_JOB_SELECTOR', 'ACCOUNTING_VO_GROUP_SELECTOR', 'ACCOUNTING_DATA_SELECTOR',
+
+        # EGI Check-in OAuth2
+        'CHECKIN_TOKEN_ENDPOINT', 'CHECKIN_REFRESH_TOKEN', 'CHECKIN_CLIENT_ID', 'CHECKIN_CLIENT_SECRET'
     ]
 
     for key in keys:
@@ -312,3 +315,30 @@ def handle_exception(e, env, worksheet=None):
     if logging.getLogger().level == logging.DEBUG:
         logging.debug("\n[DEBUG] Traceback:")
         logging.debug(traceback.format_exc())
+
+def get_checkin_access_token(env):
+    """Obtain an access token using a refresh token from EGI Check-in."""
+    refresh_token = env.get('CHECKIN_REFRESH_TOKEN')
+    client_id = env.get('CHECKIN_CLIENT_ID')
+    client_secret = env.get('CHECKIN_CLIENT_SECRET')
+    token_endpoint = env.get('CHECKIN_TOKEN_ENDPOINT', 'https://aai.egi.eu/oidc/token')
+
+    if not refresh_token or not client_id:
+        return None
+
+    payload = {
+        'client_id': client_id,
+        'grant_type': 'refresh_token',
+        'refresh_token': refresh_token,
+        'scope': 'openid profile email offline_access'
+    }
+    if client_secret:
+        payload['client_secret'] = client_secret
+
+    try:
+        response = requests.post(token_endpoint, data=payload)
+        response.raise_for_status()
+        return response.json().get('access_token')
+    except Exception as e:
+        print(colourise("red", "[ERROR]"), f"Failed to refresh Check-in token: {e}")
+        return None
