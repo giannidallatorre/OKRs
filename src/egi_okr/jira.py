@@ -41,6 +41,8 @@ def get_service_orders(env):
     try:
         verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
         response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        if response.status_code != 200:
+            logging.error(f"[ERROR] Jira returned status {response.status_code}: {response.text}")
         response.raise_for_status()
         orders = response.json()
     except Exception as e:
@@ -78,6 +80,8 @@ def get_customers_complains(env):
     try:
         verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
         response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        if response.status_code != 200:
+            logging.error(f"[ERROR] Jira returned status {response.status_code}: {response.text}")
         response.raise_for_status()
         data = response.json()
     except Exception as e:
@@ -165,6 +169,8 @@ def get_sla_violations(env):
     try:
         verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
         response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        if response.status_code != 200:
+            logging.error(f"[ERROR] Jira returned status {response.status_code}: {response.text}")
         response.raise_for_status()
         data = response.json()
     except Exception:

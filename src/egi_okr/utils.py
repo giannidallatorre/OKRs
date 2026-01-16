@@ -121,7 +121,7 @@ def get_env_settings():
         'ACTIVE_SLAs_FILE',
 
         # Jira
-        'JIRA_SERVER_URL', 'JIRA_AUTH_TOKEN', 
+        'JIRA_SERVER_URL', 'JIRA_AUTH_TOKEN', 'JIRA_PROJECT',
         'SERVICE_ORDERS_PROJECTKEY', 'SERVICE_ORDERS_ISSUETYPE',
         'COMPLAINS_PROJECTKEY', 'VIOLATIONS_PROJECTKEY', 'ISSUETYPE',
 
@@ -141,6 +141,12 @@ def get_env_settings():
         if key in os.environ:
             d[key] = os.environ[key]
     
+    # Cascade JIRA_PROJECT to specific keys if they are missing
+    if 'JIRA_PROJECT' in d:
+        for key in ['SERVICE_ORDERS_PROJECTKEY', 'COMPLAINS_PROJECTKEY', 'VIOLATIONS_PROJECTKEY']:
+            if key not in d or not d[key]:
+                d[key] = d['JIRA_PROJECT']
+
     return d
 
 def validate_google_credentials(service_info):

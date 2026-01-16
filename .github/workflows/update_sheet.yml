@@ -34,6 +34,7 @@ jobs:
       
       # Default Server URLs (can be overridden by vars)
       JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL || 'https://jira.egi.eu/' }}
+      JIRA_PROJECT: ${{ vars.JIRA_PROJECT || 'EOSC' }}
       OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL || 'https://operations-portal.egi.eu/api' }}
       ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL || 'https://accounting.egi.eu' }}
       
@@ -98,7 +99,8 @@ jobs:
         GOOGLE_ORDERS_WORKSHEET: ${{ vars.GOOGLE_ORDERS_WORKSHEET || 'Orders' }}
         GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
-        SERVICE_ORDERS_PROJECTKEY: ${{ vars.SERVICE_ORDERS_PROJECTKEY || 'EOSC' }}
+        JIRA_PROJECT: ${{ env.JIRA_PROJECT }}
+        SERVICE_ORDERS_PROJECTKEY: ${{ vars.SERVICE_ORDERS_PROJECTKEY }}
         SERVICE_ORDERS_ISSUETYPE: ${{ vars.SERVICE_ORDERS_ISSUETYPE || 'Service Order' }}
       run: |
         python -m egi_okr.accounting_orders
