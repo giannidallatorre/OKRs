@@ -136,17 +136,17 @@ class SLAsAccounting:
             print(colourise("red", "[ABORT]"), "Cannot proceed with invalid or unknown reporting period.")
             return
 
-         # Determine correct worksheet key based on scope
-         scope = self.env.get('ACCOUNTING_SCOPE', '')
-         if 'cloud' in scope:
-             target_ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET'
-         else:
-             target_ws_key = 'GOOGLE_SLAs_HTC_WORKSHEET'
+        # Determine correct worksheet key based on scope
+        scope = self.env.get('ACCOUNTING_SCOPE', '')
+        if 'cloud' in scope:
+            target_ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET'
+        else:
+            target_ws_key = 'GOOGLE_SLAs_HTC_WORKSHEET'
 
-         # This target sheet is in the spreadsheet defined by GOOGLE_SHEET_NAME.
-         worksheet = init_GWorkSheet(self.env, target_ws_key)
+        # This target sheet is in the spreadsheet defined by GOOGLE_SHEET_NAME.
+        worksheet = init_GWorkSheet(self.env, target_ws_key)
         if not worksheet:
-             return
+            return
 
         # Fetch SLAs
         slas = self.fetch_active_slas()
