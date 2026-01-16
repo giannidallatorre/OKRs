@@ -45,6 +45,4 @@ act --job update-sheet \
     --secret OPERATIONS_API_KEY="test-api-key" \
     --var DATE_FROM="2024/01" \
     --var DATE_TO="2024/03" \
-    --var JIRA_SERVER_URL="https://jira.example.com/" \
-    --var OPERATIONS_SERVER_URL="https://ops.example.com/" \
     --bind
