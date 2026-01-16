@@ -18,9 +18,8 @@
 import re
 import json
 import time
-import requests # implicitly used by utils/jira
 import gspread
-from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise
+from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise, format_reporting_period
 from .jira import get_service_orders
 
 class OrdersAccounting:
@@ -243,12 +242,19 @@ class OrdersAccounting:
     def run(self):
         print(f"\nLog Level = {colourise('cyan', self.env.get('LOG', 'INFO'))}")
         
-        reporting_period = f"{self.env['DATE_FROM'][0:4]}.{self.env['DATE_FROM'][-2:]}-{self.env['DATE_TO'][-2:]}"
+        reporting_period = format_reporting_period(self.env)
         print(colourise("cyan", "\n[INFO]"), f"Reporting Period: '{reporting_period}'")
+
+        if reporting_period in ["UNKNOWN_PERIOD", "INVALID_PERIOD"]:
+            print(colourise("red", "[ABORT]"), "Cannot proceed with invalid or unknown reporting period.")
+            return
 
         # Initialize the Google Worksheet.
         worksheet = init_GWorkSheet(self.env, 'GOOGLE_ORDERS_WORKSHEET')
         
+        if not worksheet:
+            return
+
         self.update_headers(worksheet, reporting_period)
         
         orders = get_service_orders(self.env)

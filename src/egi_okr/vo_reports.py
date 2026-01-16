@@ -19,7 +19,7 @@ import datetime
 import json
 import requests
 import gspread
-from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise
+from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise, format_reporting_period
 from .operations import get_VOs_report
 
 class VOsReports:
@@ -119,8 +119,12 @@ class VOsReports:
         if log_level == "DEBUG":
             print("\n- Environment settings details hidden -")
 
-        reporting_period = f"{self.env['DATE_FROM'][0:4]}.{self.env['DATE_FROM'][-2:]}-{self.env['DATE_TO'][-2:]}"
+        reporting_period = format_reporting_period(self.env)
         print(colourise("cyan", "\n[INFO]"), f"Reporting Period: {reporting_period}")
+
+        if reporting_period in ["UNKNOWN_PERIOD", "INVALID_PERIOD"]:
+            print(colourise("red", "[ABORT]"), "Cannot proceed with invalid or unknown reporting period.")
+            return
 
         # Use the configured worksheet for VO reporting.
         worksheet = init_GWorkSheet(self.env, 'GOOGLE_VOS_REPORT_WORKSHEET')

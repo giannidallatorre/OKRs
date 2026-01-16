@@ -24,6 +24,30 @@ import traceback
 # Suppress warnings
 warnings.filterwarnings("ignore")
 
+def format_reporting_period(env):
+    """Safely construct the reporting period string 'YYYY.MM-MM'"""
+    date_from = env.get('DATE_FROM')
+    date_to = env.get('DATE_TO')
+    
+    if not date_from or not date_to:
+        print(colourise("yellow", "[WARN]"), "DATE_FROM or DATE_TO environment variables are missing.")
+        return "UNKNOWN_PERIOD"
+        
+    try:
+        # Expected format: YYYY/MM or YYYY-MM
+        # Robustly handle different separators
+        df = date_from.replace("/", "-")
+        dt = date_to.replace("/", "-")
+        
+        year = df[0:4]
+        start_month = df[-2:]
+        end_month = dt[-2:]
+        
+        return f"{year}.{start_month}-{end_month}"
+    except Exception as e:
+        print(colourise("yellow", "[WARN]"), f"Error formatting reporting period: {e}")
+        return "INVALID_PERIOD"
+
 def colourise(colour, text):
     """Colourise - colours text in shell."""
     if colour == "black":

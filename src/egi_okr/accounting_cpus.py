@@ -21,7 +21,7 @@ import datetime
 import json
 import os
 from gspread.exceptions import GSpreadException
-from .utils import get_env_settings, handle_exception, init_GWorkSheet, find_difference
+from .utils import get_env_settings, handle_exception, init_GWorkSheet, find_difference, format_reporting_period
 
 class CPUAccounting:
     def __init__(self, env=None):
@@ -120,10 +120,9 @@ class CPUAccounting:
         
         worksheet = init_GWorkSheet(self.env, worksheet_key)
         if not worksheet:
-            logging.error("Failed to initialize worksheet")
             return
 
-        accounting_period = f"{self.env['DATE_FROM'][0:4]}.{self.env['DATE_FROM'][-2:]}-{self.env['DATE_TO'][-2:]}"
+        accounting_period = format_reporting_period(self.env)
         
         try:
             worksheet_dicts = worksheet.get_all_records()
@@ -208,8 +207,12 @@ class CPUAccounting:
         log_level = "DEBUG" if self.env.get('LOG') == "DEBUG" else "INFO"
         logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(message)s')
         
-        accounting_period = f"{self.env['DATE_FROM'][0:4]}.{self.env['DATE_FROM'][-2:]}-{self.env['DATE_TO'][-2:]}"
+        accounting_period = format_reporting_period(self.env)
         logging.info(f"[INFO] Reporting Period: {accounting_period}")
+
+        if accounting_period in ["UNKNOWN_PERIOD", "INVALID_PERIOD"]:
+            logging.error("[ABORT] Cannot proceed with invalid or unknown reporting period.")
+            return
 
         try:
             data = self.fetch_accounting_data()

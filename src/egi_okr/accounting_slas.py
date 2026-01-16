@@ -19,7 +19,7 @@ import datetime
 import json
 import requests
 import gspread
-from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise
+from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise, format_reporting_period
 
 class SLAsAccounting:
     def __init__(self, env=None):
@@ -129,8 +129,19 @@ class SLAsAccounting:
         log_level = self.env.get('LOG', 'INFO')
         print(f"\nLog Level = {colourise('cyan', log_level)}")
         
-        reporting_period = f"{self.env['DATE_FROM'][0:4]}.{self.env['DATE_FROM'][-2:]}-{self.env['DATE_TO'][-2:]}"
+        reporting_period = format_reporting_period(self.env)
         print(colourise("cyan", "\n[INFO]"), f"Reporting Period: {reporting_period}")
+
+        if reporting_period in ["UNKNOWN_PERIOD", "INVALID_PERIOD"]:
+            print(colourise("red", "[ABORT]"), "Cannot proceed with invalid or unknown reporting period.")
+            return
+
+         # Determine correct worksheet key based on scope
+         scope = self.env.get('ACCOUNTING_SCOPE', '')
+         if 'cloud' in scope:
+             target_ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET'
+         else:
+             target_ws_key = 'GOOGLE_SLAs_HTC_WORKSHEET'
 
          # This target sheet is in the spreadsheet defined by GOOGLE_SHEET_NAME.
          worksheet = init_GWorkSheet(self.env, target_ws_key)

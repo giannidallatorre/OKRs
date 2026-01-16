@@ -22,7 +22,7 @@ import requests
 import warnings
 import gspread
 from gspread.exceptions import GSpreadException
-from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise
+from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise, format_reporting_period
 from .operations import get_VOs_stats
 
 class UsersAccounting:
@@ -188,8 +188,12 @@ class UsersAccounting:
         
         print(f"\nLog Level = {colourise('cyan', self.env.get('LOG', 'INFO'))}")
         
-        accounting_period = f"{self.env['DATE_FROM'][0:4]}.{self.env['DATE_FROM'][-2:]}-{self.env['DATE_TO'][-2:]}"
+        accounting_period = format_reporting_period(self.env)
         print(colourise("cyan", "\n[INFO]"), f"\tReporting Period: '{accounting_period}'")
+
+        if accounting_period in ["UNKNOWN_PERIOD", "INVALID_PERIOD"]:
+            print(colourise("red", "[ABORT]"), "Cannot proceed with invalid or unknown reporting period.")
+            return
 
         worksheet = init_GWorkSheet(self.env, 'GOOGLE_VOS_WORKSHEET')
         if not worksheet:

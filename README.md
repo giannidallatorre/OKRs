@@ -75,6 +75,23 @@ This GitHub repository includes clients to generate:
 * [The number of Services Orders (SOs) received throught the EOSC Marketplace](pyOKR_ServiceOrders_Accounting)
 * [Report of the VOs created/leaving the EGI Operations Portal](pyOKR_VOs_Report)
 
+## GitHub Actions Setup
+
+To run the OKR updates automatically via GitHub Actions, you must configure the following in your repository:
+
+### 1. GitHub Secrets
+Go to **Settings > Secrets and variables > Actions > Secrets** and add:
+- `SERVICE_ACCOUNT_JSON`: The entire content of your `service_account.json` file.
+- `JIRA_AUTH_TOKEN`: Your Jira API token.
+- `OPERATIONS_API_KEY`: Your EGI Operations Portal API key.
+
+### 2. GitHub Variables
+Go to **Settings > Secrets and variables > Actions > Variables** and add:
+- `GOOGLE_SHEET_NAME`: Name of your Google Spreadsheet (e.g., `EGI_OKR_Reporting`).
+- `DATE_FROM`: Reporting start date (e.g., `2024/01`).
+- `DATE_TO`: Reporting end date (e.g., `2024/03`).
+- All other worksheet names as defined in `.env.template` if they differ from defaults.
+
 ## References
 
 * [gspread APIs documentation](https://docs.gspread.org/en/v5.10.0/)
