@@ -42,25 +42,29 @@ class UsersAccounting:
 
     def get_vo_position(self, worksheet, vo_name):
         row = 3
-        worksheet_dicts = worksheet.get_all_records()
-        for item in worksheet_dicts:
-            if "TOTAL" not in item['VO']:
-                if item['VO'] <= vo_name:
-                    row += 1
-                else:
-                    break
+        all_values = worksheet.get_all_values()
+        if len(all_values) > 1:
+            # get_all_records logic: keys from row 1, items from row 2
+            # We assume the first column (index 0) contains the VO name
+            for values in all_values[1:]:
+                vo_in_row = values[0] if values else ""
+                if "TOTAL" not in vo_in_row:
+                    if vo_in_row <= vo_name:
+                        row += 1
+                    else:
+                        break
         return row
 
     def update_headers(self, worksheet, accounting_period):
         y_pos = 2
         flag = True
         
-        worksheet_dicts = worksheet.get_all_records()
-        if not worksheet_dicts: # Empty sheet
+        headers = worksheet.row_values(1)
+        if not headers: # Empty sheet
              y_pos = 2
              flag = False
         else:
-            for header in worksheet_dicts[0]:
+            for header in headers:
                 if "VO" not in header:
                     if header == accounting_period:
                         y_pos = -1
@@ -70,7 +74,7 @@ class UsersAccounting:
                     else:
                         break
             
-            if y_pos >= 2 or y_pos > len(worksheet_dicts[0]):
+            if y_pos >= 2 or y_pos > len(headers):
                 flag = False
 
         if not flag and y_pos > 0:
@@ -98,7 +102,6 @@ class UsersAccounting:
 
         print(colourise("cyan", "\n[INFO]"), "\tUpdating statistics of existing VOs..")
 
-        worksheet_dicts = worksheet.get_all_records()
         
         # Helper to find cells safely
         def safe_find_col(label):
