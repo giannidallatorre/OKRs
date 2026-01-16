@@ -97,33 +97,31 @@ class SLAsAccounting:
         
         for value in values:
              # Skip header row and short lines.
+             if len(value) < 17 or "VO name" in value[10]:
+                 continue
+
+             status = value[6]
+             vo_name = value[10]
              
-             if "VO name" not in value[10]:
-                 status = value[6]
-                 vo_name = value[10]
-                 has_cloud = value[12]
-                 has_htc = not value[16]
+             # Classify SLA type based on Cloud and EGI service markers.
+             if "FINALIZED" in status:
+                 sla_type = ""
+                 v12 = value[12] # Cloud marker
+                 v16 = value[16] # EGI marker
+                 if vo_name and v12 and not v16: sla_type = "egi"
+                 elif vo_name and not v12 and v16: sla_type = "cloud"
+                 elif vo_name and v12 and v16: sla_type = "egi, cloud"
                  
-                 # Classify SLA type based on Cloud and EGI service markers.
-                 
-                 if "FINALIZED" in status:
-                     sla_type = ""
-                     v12 = value[12] # Cloud marker
-                     v16 = value[16] # EGI marker
-                     if vo_name and v12 and not v16: sla_type = "egi"
-                     elif vo_name and not v12 and v16: sla_type = "cloud"
-                     elif vo_name and v12 and v16: sla_type = "egi, cloud"
-                     
-                     if sla_type:
-                         vos.append({
-                             "Customer": value[0],
-                             "Name": vo_name,
-                             "CPU/h": 0,
-                             "SLA_start": value[7],
-                             "SLA_end": value[8],
-                             "Active": "Y",
-                             "Type": sla_type
-                         })
+                 if sla_type:
+                     vos.append({
+                         "Customer": value[0],
+                         "Name": vo_name,
+                         "CPU/h": 0,
+                         "SLA_start": value[7],
+                         "SLA_end": value[8],
+                         "Active": "Y",
+                         "Type": sla_type
+                     })
         return vos
 
     def fetch_vo_accounting(self, vo_name):
