@@ -150,6 +150,27 @@ class OrdersAccounting:
         
         return service_buckets
 
+    def get_column_by_label(self, worksheet, label):
+        """Find column index by its header label. Returns None if not found."""
+        try:
+            cell = worksheet.find(label.strip())
+            return cell.col if cell else None
+        except:
+            return None
+
+    def get_service_position(self, worksheet, service_name):
+        """Find the lexicographical row position for a new service."""
+        all_values = worksheet.get_all_values()
+        row = 2 # Starting row for data
+        if len(all_values) > 1:
+            for values in all_values[1:]: # Check from row 2
+                existing_service = values[0] if values else ""
+                if existing_service < service_name:
+                    row += 1
+                else:
+                    break
+        return row
+
     def update_sheet_orders(self, worksheet, reporting_period, buckets):
         # Format
         worksheet.format("A1:P1", {
@@ -161,79 +182,68 @@ class OrdersAccounting:
             "horizontalAlignment": "RIGHT",
             "textFormat": {"fontSize": 10}
         })
-        
-        # Update Existing services in the sheet.
-        try:
-             # Find period column
-             found_period = worksheet.findall(reporting_period)
-             period_col = None
-             for c in found_period:
-                  if c.row == 1: # Header row
-                       period_col = c.col
-                       break
-             if not period_col:
-                  raise Exception("Period not found")
-        except:
-             print(colourise("red", "[ERROR]"), f"Period {reporting_period} not found in header")
-             return
 
+        # Ensure period column exists
+        period_col = self.get_column_by_label(worksheet, reporting_period)
+        if not period_col:
+            # find where to insert
+            headers = worksheet.row_values(1)
+            period_col = 2
+            if headers:
+                for h in headers:
+                    if h and h != "Service" and h < reporting_period:
+                        period_col += 1
+                    else:
+                        break
+            
+            print(f"Adding period {reporting_period} at column {period_col}")
+            worksheet.insert_cols([[reporting_period]], period_col, inherit_from_before=True)
+
+        # Get all services in column 1
+        all_services = worksheet.col_values(1)
         remaining_services = []
 
+        # 1. Update Existing
         for service_name, so_list in buckets.items():
-            if not so_list and len(buckets[service_name]) == 0:
-                pass
-            
             try:
-                # Find service row
-                found_cells = worksheet.findall(service_name)
-                cell = None
-                for c in found_cells:
-                    if c.col == 1:
-                        cell = c
-                        break
+                row_index = None
+                if service_name in all_services:
+                    row_index = all_services.index(service_name) + 1
                 
-                if not cell:
+                if not row_index:
                     remaining_services.append(service_name)
                     continue
                 
-                # Update
                 so_string = ', '.join(so_list)
-                worksheet.update_cell(cell.row, period_col, len(so_list))
+                worksheet.update_cell(row_index, period_col, len(so_list))
                 worksheet.insert_note(
-                    gspread.utils.rowcol_to_a1(cell.row, period_col),
+                    gspread.utils.rowcol_to_a1(row_index, period_col),
                     so_string
                 )
-                print(f"Updated {service_name}: {len(so_list)} orders")
+                if self.env.get('LOG') == "DEBUG":
+                    print(f"Updated {service_name}: {len(so_list)} orders")
 
             except Exception as e:
-                # Handle quota
-                 if "Quota exceeded" in str(e):
-                      time.sleep(60)
-                      remaining_services.append(service_name)
-                 else:
-                      # If not found (shouldn't happen with findall logic above), append
-                      remaining_services.append(service_name)
+                if "Quota exceeded" in str(e):
+                    time.sleep(60)
+                    remaining_services.append(service_name)
+                else:
+                    remaining_services.append(service_name)
         
         # 2. Insert New
         if remaining_services:
             print(colourise("cyan", "\n[INFO]"), "Adding new services...")
-            col_index = self.get_header_position(worksheet, reporting_period)
-            
             for service_name in remaining_services:
                 so_list = buckets[service_name]
-                
                 try:
                     row_index = self.get_service_position(worksheet, service_name)
                     print(f"Insert {service_name} at row {row_index}")
+                    worksheet.insert_row([service_name], index=row_index)
                     
-                    worksheet.insert_row(['', ''], index=row_index)
-                    worksheet.update_cell(row_index, 1, service_name)
-                    
-                    worksheet.update_cell(row_index, col_index, len(so_list))
-                    
+                    worksheet.update_cell(row_index, period_col, len(so_list))
                     so_string = ', '.join(so_list)
                     worksheet.insert_note(
-                        gspread.utils.rowcol_to_a1(row_index, col_index),
+                        gspread.utils.rowcol_to_a1(row_index, period_col),
                         so_string
                     )
                 except Exception as e:

@@ -133,16 +133,17 @@ class CPUAccounting:
             VOs_string = ', '.join([str(elem.get('VO name')) for elem in summary["VOs_complete_list"]]) if summary["VOs_complete_list"] else '-'
             NOVOs_string = ', '.join([str(item) for item in summary["noVOsCPUs"]]) if summary["noVOsCPUs"] else '-'
 
-            flag = False
-            for item in worksheet_dicts:
-                if item.get('Period') == accounting_period: # Safe get
-                    cell = worksheet.find(accounting_period)
-                    flag = True
-                    self.update_worksheet_cells(worksheet, cell, summary, VOs_string, NOVOs_string)
-                    logging.info(f"Updated the Total {'Cloud' if 'cloud' in scope else 'HTC'} CPU/h for the reporting period: {accounting_period}")
-                    break
-
-            if not flag:
+            # Idempotent logic: find existing period column A
+            periods = worksheet.col_values(1)
+            period_row = None
+            if accounting_period in periods:
+                period_row = periods.index(accounting_period) + 1
+            
+            if period_row:
+                cell = worksheet.cell(period_row, 1)
+                self.update_worksheet_cells(worksheet, cell, summary, VOs_string, NOVOs_string)
+                logging.info(f"Updated the Total {'Cloud' if 'cloud' in scope else 'HTC'} CPU/h for the reporting period: {accounting_period} (row {period_row})")
+            if not period_row:
                 pos, _ = self.get_cell_position(worksheet, accounting_period)
                 logging.info(f"Adding {accounting_period} at row: {pos}")
                 

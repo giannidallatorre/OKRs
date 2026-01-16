@@ -26,46 +26,58 @@ class SLAsAccounting:
         self.env = env if env is not None else get_env_settings()
 
     def get_cell_position(self, worksheet, accounting_period, is_col=False):
-        # Find the row position for the reporting period.
-        found = False
+        # Find the row position for the reporting period in Column A.
         pos = 2
+        try:
+            cell = worksheet.find(accounting_period)
+            if cell:
+                return cell.row, True
+        except:
+            pass
         
         values_list = worksheet.col_values(1)
-        # Period is expected to be in Column A. This searches for the correct row position.
-        
         if len(values_list) > 1:
             for header in values_list:
                 if "Period" not in header:
-                    if header == accounting_period or header == "":
-                        found = True
+                    if header == "":
                         break
                     if header < accounting_period:
                         pos += 1
-        return pos, found
+                    else:
+                        break
+        return pos, False
 
     def get_vo_col_position(self, worksheet, vo_name):
-        # Header is Row 1
-        found = False
+        # Header is Row 1. find the column for the VO.
+        try:
+            cell = worksheet.find(vo_name)
+            if cell and cell.row == 1:
+                return cell.col, True
+        except:
+            pass
+
         pos = 2
         values_list = worksheet.row_values(1)
         
         if len(values_list) > 1:
              for header in values_list:
                  if "Period" not in header:
-                     if header == vo_name or header == "":
-                         found = True
+                     if header == "":
                          break
-                     else:
+                     if header < vo_name:
                          pos += 1
+                     else:
+                         break
+        
+    def ensure_vo_column(self, worksheet, vo_name):
+        """Find or insert VO column."""
+        vo_col, found = self.get_vo_col_position(worksheet, vo_name)
         
         if not found:
-             print(colourise("green", "[INFO]"), f"Adding '{vo_name}' at column: {pos}")
-             worksheet.insert_cols([[vo_name]], pos, value_input_option='RAW', inherit_from_before=False)
-        else:
-             pass 
-             # print(f"VO {vo_name} found at {pos}")
+             print(colourise("green", "[INFO]"), f"Adding '{vo_name}' at column: {vo_col}")
+             worksheet.insert_cols([[vo_name]], vo_col, value_input_option='RAW', inherit_from_before=False)
         
-        return pos
+        return vo_col
 
     def fetch_active_slas(self):
         slas_ws = init_GWorkSheet(self.env, 'GOOGLE_SLAs_WORKSHEET', 'GOOGLE_SLAs_SHEET_NAME')
@@ -182,7 +194,7 @@ class SLAsAccounting:
                             # Update Sheet
                             print(f"- {vo['Name']}: {val}")
                               
-                            vo_col = self.get_vo_col_position(worksheet, vo['Name'])
+                            vo_col = self.ensure_vo_column(worksheet, vo['Name'])
                             worksheet.update_cell(period_pos, vo_col, val)
         
         # Update Total

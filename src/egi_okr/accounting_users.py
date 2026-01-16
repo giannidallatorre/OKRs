@@ -29,64 +29,58 @@ class UsersAccounting:
     def __init__(self, env=None):
         self.env = env if env is not None else get_env_settings()
 
-    def get_header_position(self, worksheet, accounting_period):
-        headers_list = worksheet.row_values(1)
-        col = 2
-        for header in headers_list:
-            if "VO" not in header:
-                if header != accounting_period:
-                    col += 1
-                else:
-                    break
-        return col
-
-    def get_vo_position(self, worksheet, vo_name):
-        row = 3
-        all_values = worksheet.get_all_values()
-        if len(all_values) > 1:
-            # get_all_records logic: keys from row 1, items from row 2
-            # We assume the first column (index 0) contains the VO name
-            for values in all_values[1:]:
-                vo_in_row = values[0] if values else ""
-                if "TOTAL" not in vo_in_row:
-                    if vo_in_row <= vo_name:
-                        row += 1
-                    else:
-                        break
-        return row
+    def get_column_by_label(self, worksheet, label):
+        """Find column index by its header label. Returns None if not found."""
+        try:
+            cell = worksheet.find(label)
+            return cell.col if cell else None
+        except:
+            return None
 
     def update_headers(self, worksheet, accounting_period):
-        y_pos = 2
-        flag = True
+        """Ensure the reporting period column exists and is correctly positioned."""
+        existing_col = self.get_column_by_label(worksheet, accounting_period)
         
+        if existing_col:
+            print(f"\tThe header '{accounting_period}' is *already* in the Worksheet (column {existing_col})")
+            return existing_col
+
+        # If not found, find where to insert
         headers = worksheet.row_values(1)
-        if not headers: # Empty sheet
-             y_pos = 2
-             flag = False
-        else:
+        y_pos = 2  # Start after VO column
+        
+        if headers:
             for header in headers:
-                if "VO" not in header:
-                    if header == accounting_period:
-                        y_pos = -1
-                        break
+                if "VO" not in header and "Users" not in header:
                     if header < accounting_period:
                         y_pos += 1
                     else:
                         break
-            
-            if y_pos >= 2 or y_pos > len(headers):
-                flag = False
+        
+        print(f"Adding '{accounting_period}' at column: {y_pos}")
+        worksheet.insert_cols(
+            [[accounting_period]], 
+            y_pos, 
+            value_input_option='RAW', 
+            inherit_from_before=True
+        )
+        return y_pos
 
-        if not flag and y_pos > 0:
-            print(f"Adding '{accounting_period}' at column: {y_pos}")
-            worksheet.insert_cols(
-                [[accounting_period]], 
-                y_pos, 
-                value_input_option='RAW', 
-                inherit_from_before=True
-            )
-        else:
-            print(f"\tThe header '{accounting_period}' is *already* in the Worksheet")
+    def get_vo_position(self, worksheet, vo_name):
+        """Find the lexicographical row position for a new VO."""
+        all_values = worksheet.get_all_values()
+        row = 3 # Starting row for data
+        if len(all_values) > 2:
+            # First row is headers, Second row is usually TOTAL/Timestamp or similar
+            # Data usually starts from row 3
+            for values in all_values[2:]: # Check from row 3
+                vo_in_row = values[0] if values else ""
+                if "TOTAL" not in vo_in_row.upper():
+                    if vo_in_row < vo_name:
+                        row += 1
+                    else:
+                        break
+        return row
 
     def update_vos(self, worksheet, vos_list, accounting_period):
         # Format headers
@@ -103,10 +97,10 @@ class UsersAccounting:
         print(colourise("cyan", "\n[INFO]"), "\tUpdating statistics of existing VOs..")
 
         
-        # Helper to find cells safely
         def safe_find_col(label):
             try:
-                return worksheet.find(label).col
+                cell = worksheet.find(label)
+                return cell.col if cell else None
             except:
                 return None
         
@@ -118,31 +112,28 @@ class UsersAccounting:
              print(colourise("red", "[ERROR]"), "Missing required columns in worksheet")
              return
 
+        # Get all VO names in column 1 to avoid repeated findall
+        all_col1_values = worksheet.col_values(1)
+        
         # 1. Update existing VOs
-        # Map existing VOs to rows to avoid nested loops.
         remaining_vos = []
         for vo in vos_list:
             vo_name = vo['name']
             
-            # Find row in existing data using findall for better performance than full scan.
-            
-            # Find row in existing data
+            # Find row index (1-based)
             try:
-                found_cells = worksheet.findall(vo_name)
-                cell = None
-                for c in found_cells:
-                    if c.col == 1:
-                        cell = c
-                        break
+                row_index = None
+                if vo_name in all_col1_values:
+                    # find index of first occurrence
+                    row_index = all_col1_values.index(vo_name) + 1
                 
-                if not cell:
+                if not row_index:
                      remaining_vos.append(vo)
                      continue
                 
-                row = cell.row
-                worksheet.update_cell(row, period_col, vo['users'])
-                worksheet.update_cell(row, reg_users_col, vo['active_members'])
-                worksheet.update_cell(row, total_users_col, vo['total_members'])
+                worksheet.update_cell(row_index, period_col, vo['users'])
+                worksheet.update_cell(row_index, reg_users_col, vo['active_members'])
+                worksheet.update_cell(row_index, total_users_col, vo['total_members'])
                 
                 if self.env.get('LOG') == "DEBUG":
                      print(colourise("green", "[LOG]"), f"Updated {vo_name}")
