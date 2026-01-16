@@ -32,7 +32,7 @@ def main():
         if len(sys.argv) > 1:
             email = sys.argv[1]
             print(f"Sharing sheet with {email}...")
-            sh.share(email, perm_type='user', role='owner')
+            sh.share(email, perm_type='user', role='writer')
             print("Shared successfully.")
         else:
             print("\nNOTE: To share this sheet with your email, run:")
