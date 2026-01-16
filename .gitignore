@@ -21,6 +21,7 @@ venv/
 .env.*
 credentials.json
 .github/.secrets
+act_setup/local.secrets
 
 # Service account files (sensitive)
 **/.config/service_account.json
