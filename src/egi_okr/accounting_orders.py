@@ -44,57 +44,6 @@ class OrdersAccounting:
             "EGI Dynamic DNS"
         ]
 
-    def get_header_position(self, worksheet, reporting_period):
-        headers_list = worksheet.row_values(1)
-        col = 2
-        for header in headers_list:
-            if "Services" not in header:
-                if header != reporting_period:
-                    col += 1
-                else:
-                    break
-        return col
-
-    def get_service_position(self, worksheet, service):
-        row = 3
-        worksheet_dicts = worksheet.get_all_records()
-        for item in worksheet_dicts:
-            if "TOTAL" not in item.get('Services', ''):
-                if item.get('Services', '') <= service:
-                    row += 1
-                else:
-                    break
-        return row
-
-    def update_headers(self, worksheet, reporting_period):
-        y_pos = 2
-        flag = True
-        
-        worksheet_dicts = worksheet.get_all_records()
-        if worksheet_dicts:
-            for header in worksheet_dicts[0]:
-                if "Services" not in header:
-                    if header == reporting_period:
-                        y_pos = -1
-                        break
-                    if header < reporting_period:
-                        y_pos += 1
-                    else:
-                        break
-                        
-            if y_pos >= 2 or y_pos > len(worksheet_dicts[0]):
-                flag = False
-
-        if not flag and y_pos > 0:
-            print(f"Adding '{reporting_period}' at column: {y_pos}")
-            worksheet.insert_cols(
-                [[reporting_period]], 
-                y_pos, 
-                value_input_option='RAW', 
-                inherit_from_before=True
-            )
-        else:
-            print(f"The header '{reporting_period}' is *already* in the Worksheet")
 
     def parse_service_name(self, details):
         # Parse service name using regex.
@@ -265,7 +214,6 @@ class OrdersAccounting:
         if not worksheet:
             return
 
-        self.update_headers(worksheet, reporting_period)
         
         orders = get_service_orders(self.env)
         buckets = self.process_orders(orders)

@@ -125,7 +125,6 @@ class CPUAccounting:
         accounting_period = format_reporting_period(self.env)
         
         try:
-            worksheet_dicts = worksheet.get_all_records()
             self.format_worksheet(worksheet)
             
             timestamp = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
