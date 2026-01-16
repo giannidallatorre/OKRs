@@ -27,6 +27,7 @@ jobs:
       PYTHONPATH: src
       SERVICE_ACCOUNT_FILE: .config/service_account.json
       SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+      OPERATIONS_FORMAT: json
       LOG: INFO
 
     steps:
@@ -77,7 +78,7 @@ jobs:
 
     - name: Run Service Orders Accounting
       env:
-        GOOGLE_ORDERS_WORKSHEET: ${{ vars.GOOGLE_ORDERS_WORKSHEET }}
+        GOOGLE_ORDERS_WORKSHEET: ${{ vars.GOOGLE_ORDERS_WORKSHEET || 'Orders' }}
         GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
         JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL }}
@@ -88,8 +89,8 @@ jobs:
 
     - name: Run CPU Accounting
       env:
-        GOOGLE_CLOUD_WORKSHEET: ${{ vars.GOOGLE_CLOUD_WORKSHEET }}
-        GOOGLE_HTC_WORKSHEET: ${{ vars.GOOGLE_HTC_WORKSHEET }}
+        GOOGLE_CLOUD_WORKSHEET: ${{ vars.GOOGLE_CLOUD_WORKSHEET || 'Cloud' }}
+        GOOGLE_HTC_WORKSHEET: ${{ vars.GOOGLE_HTC_WORKSHEET || 'HTC' }}
         GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
         ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
@@ -101,7 +102,7 @@ jobs:
 
     - name: Run Users Accounting
       env:
-        GOOGLE_VOS_WORKSHEET: ${{ vars.GOOGLE_VOS_WORKSHEET }}
+        GOOGLE_VOS_WORKSHEET: ${{ vars.GOOGLE_VOS_WORKSHEET || 'VOs' }}
         GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
         OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
@@ -112,7 +113,7 @@ jobs:
 
     - name: Run VO Reports
       env:
-        GOOGLE_VOS_REPORT_WORKSHEET: ${{ vars.GOOGLE_VOS_REPORT_WORKSHEET }}
+        GOOGLE_VOS_REPORT_WORKSHEET: ${{ vars.GOOGLE_VOS_REPORT_WORKSHEET || 'Report' }}
         GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
         OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
@@ -122,9 +123,9 @@ jobs:
     
     - name: Run SLA Accounting
       env:
-        GOOGLE_SLAs_WORKSHEET: ${{ vars.GOOGLE_SLAs_WORKSHEET }}
-        GOOGLE_SLAs_CLOUD_WORKSHEET: ${{ vars.GOOGLE_SLAs_CLOUD_WORKSHEET }}
-        GOOGLE_SLAs_HTC_WORKSHEET: ${{ vars.GOOGLE_SLAs_HTC_WORKSHEET }}
+        GOOGLE_SLAs_WORKSHEET: ${{ vars.GOOGLE_SLAs_WORKSHEET || 'SLAs' }}
+        GOOGLE_SLAs_CLOUD_WORKSHEET: ${{ vars.GOOGLE_SLAs_CLOUD_WORKSHEET || 'CloudReport' }}
+        GOOGLE_SLAs_HTC_WORKSHEET: ${{ vars.GOOGLE_SLAs_HTC_WORKSHEET || 'HTCReport' }}
         GOOGLE_SLAs_SHEET_NAME: ${{ secrets.GOOGLE_SLAs_SHEET_NAME }}
         GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
         ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
