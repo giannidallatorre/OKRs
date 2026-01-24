@@ -154,7 +154,8 @@ def get_env_settings():
         'LOG': 'INFO',
         'SSL_CHECK': 'True',
         
-        # Google Sheet worksheet defaults
+        # Google Sheet defaults
+        'GOOGLE_SHEET_NAME': 'EGI_OKR_Test_Verify',
         'GOOGLE_CLOUD_WORKSHEET': 'Cloud',
         'GOOGLE_HTC_WORKSHEET': 'HTC',
         'GOOGLE_VOS_WORKSHEET': 'VOs',
@@ -181,8 +182,9 @@ def get_env_settings():
                  d[key] = d['JIRA_PROJECT']
 
     # Fallback for GOOGLE_SLAs_SHEET_NAME
-    if 'GOOGLE_SHEET_NAME' in d and ('GOOGLE_SLAs_SHEET_NAME' not in d or not d['GOOGLE_SLAs_SHEET_NAME']):
-        d['GOOGLE_SLAs_SHEET_NAME'] = d['GOOGLE_SHEET_NAME']
+    # If not set by environment, use GOOGLE_SHEET_NAME
+    if not d.get('GOOGLE_SLAs_SHEET_NAME'):
+        d['GOOGLE_SLAs_SHEET_NAME'] = d.get('GOOGLE_SHEET_NAME')
 
     return d
 
