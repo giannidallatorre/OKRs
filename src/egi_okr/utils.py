@@ -157,12 +157,12 @@ def get_env_settings():
         # Google Sheet worksheet defaults
         'GOOGLE_CLOUD_WORKSHEET': 'Accounting Cloud CPU/h',
         'GOOGLE_HTC_WORKSHEET': 'Accounting HTC CPU/h',
-        'GOOGLE_VOS_WORKSHEET': 'VOs with User Accounting',
-        'GOOGLE_VOS_REPORT_WORKSHEET': 'VOs Report',
-        'GOOGLE_ORDERS_WORKSHEET': 'Service Orders',
+        'GOOGLE_VOS_WORKSHEET': 'VOs',
+        'GOOGLE_VOS_REPORT_WORKSHEET': 'Report',
+        'GOOGLE_ORDERS_WORKSHEET': 'Orders',
         'GOOGLE_SLAs_WORKSHEET': 'SLAs',
-        'GOOGLE_SLAs_CLOUD_WORKSHEET': 'SLA Accounting Cloud',
-        'GOOGLE_SLAs_HTC_WORKSHEET': 'SLA Accounting HTC',
+        'GOOGLE_SLAs_CLOUD_WORKSHEET': 'CloudReport',
+        'GOOGLE_SLAs_HTC_WORKSHEET': 'HTCReport',
         'ACTIVE_SLAs_FILE': 'active_slas.json'
     }
 
