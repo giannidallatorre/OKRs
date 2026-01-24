@@ -112,15 +112,31 @@ class CPUAccounting:
         })
 
     def update_headers(self, worksheet, accounting_period):
-        """Ensure base headers exist."""
-        headers = ["Period", "CPU/h", "Total VOs", "VOs List", "No CPU Count", "No CPU List", "Diff"]
+        """Ensure base headers exist and match user format."""
+        scope = self.env.get('ACCOUNTING_SCOPE', '')
+        cpu_header = "Cloud CPU/h" if 'cloud' in scope else "HTC CPU/h"
+        
+        headers = [
+            "Period", 
+            cpu_header, 
+            "#VOs with accounting", 
+            "List of active VOs", 
+            "#VOs without accounting", 
+            "VOs with *NO* accounting", 
+            "VOs variations (since the previous period)", 
+            "Follow-up actions (with VOs with no accounting)"
+        ]
+        
         existing_headers = worksheet.row_values(1)
         if not existing_headers:
-            worksheet.update('A1:G1', [headers])
+            worksheet.update('A1:H1', [headers])
         else:
-            # Check if Period is in col 1
+            # Check if Period or major header matches
             if "Period" not in existing_headers[0]:
                 worksheet.insert_cols([[h] for h in headers], 1, value_input_option='RAW')
+            else:
+                # Update header names just in case they were generic
+                worksheet.update('A1:H1', [headers])
         return
 
     def update_worksheet(self, summary):
@@ -202,11 +218,12 @@ class CPUAccounting:
             VOs_string,
             len(summary["noVOsCPUs"]),
             NOVOs_string,
-            result
+            result,
+            '-' # Follow-up actions placeholder
         ]
         
-        # Batch update the range
-        range_label = f"B{cell.row}:G{cell.row}"
+        # Batch update the range B:H
+        range_label = f"B{cell.row}:H{cell.row}"
         try:
             worksheet.update(range_label, [row_values], value_input_option='RAW')
         except Exception as e:
