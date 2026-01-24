@@ -185,22 +185,32 @@ class CPUAccounting:
         scope = self.env.get('ACCOUNTING_SCOPE', '')
         cpu_val = summary["total_cloud_cpu_hours"] if 'cloud' in scope else summary["total_htc_cpu"]
         
-        # Update worksheet cells
-        worksheet.update_cell(cell.row, cell.col + 1, cpu_val)
-        worksheet.update_cell(cell.row, cell.col + 2, summary["total"])
-        worksheet.update_cell(cell.row, cell.col + 3, VOs_string)
-        worksheet.update_cell(cell.row, cell.col + 4, len(summary["noVOsCPUs"]))
-        worksheet.update_cell(cell.row, cell.col + 5, NOVOs_string)
-        
+        result = '-'
         if cell.row > 2:
              # Recalculate diff
-             prev_vos = worksheet.cell(cell.row - 1, 4).value
-             # current is VOs_string
-             newVOs_str, leavingVOs_str = find_difference(prev_vos, VOs_string)
-             result = f"APPEARED: {newVOs_str}\nDISAPPEARED: {leavingVOs_str}"
-             worksheet.update_cell(cell.row, cell.col + 6, result)
-        else:
-             worksheet.update_cell(cell.row, cell.col + 6, '-')
+             try:
+                 prev_vos = worksheet.cell(cell.row - 1, 4).value
+                 newVOs_str, leavingVOs_str = find_difference(prev_vos, VOs_string)
+                 result = f"APPEARED: {newVOs_str}\nDISAPPEARED: {leavingVOs_str}"
+             except:
+                 pass
+
+        # Update row values starting from col 2 (col 1 is Period)
+        row_values = [
+            cpu_val,
+            summary["total"],
+            VOs_string,
+            len(summary["noVOsCPUs"]),
+            NOVOs_string,
+            result
+        ]
+        
+        # Batch update the range
+        range_label = f"B{cell.row}:G{cell.row}"
+        try:
+            worksheet.update(range_label, [row_values], value_input_option='RAW')
+        except Exception as e:
+            print(f"Error updating row {cell.row}: {e}")
 
 
     def get_cell_position(self, worksheet, accounting_period):

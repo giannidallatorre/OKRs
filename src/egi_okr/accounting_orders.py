@@ -230,20 +230,6 @@ class OrdersAccounting:
                 worksheet.update_cells(cells_to_update, value_input_option='RAW')
             except Exception as e:
                 print(colourise("red", "[ERROR]"), f"Failed batch update: {e}")
-                so_list = buckets[service_name]
-                try:
-                    row_index = self.get_service_position(worksheet, service_name)
-                    print(f"Insert {service_name} at row {row_index}")
-                    worksheet.insert_row([service_name], index=row_index)
-                    
-                    worksheet.update_cell(row_index, period_col, len(so_list))
-                    so_string = ', '.join(so_list)
-                    worksheet.insert_note(
-                        gspread.utils.rowcol_to_a1(row_index, period_col),
-                        so_string
-                    )
-                except Exception as e:
-                    print(colourise("red", "[ERROR]"), f"Failed to insert {service_name}: {e}")
 
     def run(self):
         print(f"\nLog Level = {colourise('cyan', self.env.get('LOG', 'INFO'))}")

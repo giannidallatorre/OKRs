@@ -158,7 +158,6 @@ class UsersAccounting:
                      remaining_vos.append(vo)
                      continue
                 
-                worksheet.update_cell(row_index, period_col, vo['users'])
                 # Buffer updates
                 cells_to_update.append(gspread.Cell(row_index, period_col, vo['users']))
                 cells_to_update.append(gspread.Cell(row_index, reg_users_col, vo['active_members']))
