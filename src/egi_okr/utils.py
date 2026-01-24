@@ -30,12 +30,22 @@ def format_reporting_period(env):
     date_to = env.get('DATE_TO')
     
     if not date_from or not date_to:
-        print(colourise("yellow", "[WARN]"), "DATE_FROM or DATE_TO environment variables are missing.")
-        return "UNKNOWN_PERIOD"
-        
+        # Fallback to last month if not provided
+        try:
+            import datetime
+            from dateutil.relativedelta import relativedelta
+            last_month = datetime.date.today() - relativedelta(months=1)
+            date_from = date_from or last_month.strftime("%Y/%m")
+            date_to = date_to or last_month.strftime("%Y/%m")
+            # Update the environment dict so other modules can use these calculated dates
+            env['DATE_FROM'] = date_from
+            env['DATE_TO'] = date_to
+        except Exception as e:
+            print(colourise("yellow", "[WARN]"), f"Failed to calculate default dates: {e}")
+            return "UNKNOWN_PERIOD"
+            
     try:
         # Expected format: YYYY/MM or YYYY-MM
-        # Robustly handle different separators
         df = date_from.replace("/", "-")
         dt = date_to.replace("/", "-")
         
@@ -153,6 +163,7 @@ def get_env_settings():
         'JIRA_SERVER_URL': 'https://jira.egi.eu/',
         'JIRA_PROJECT': 'EOSC',
         'SERVICE_ORDERS_PROJECTKEY': 'EGISO',
+        'SERVICE_ORDERS_ISSUETYPE': 'Service Order',
         'COMPLAINS_PROJECTKEY': 'IMSCC',
         'VIOLATIONS_PROJECTKEY': 'IMSSLA',
         'ISSUETYPE': 'Service SLA Violation',

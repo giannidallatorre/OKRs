@@ -26,57 +26,11 @@ jobs:
 
       # Common environment variables
       PYTHONPATH: src
-      SERVICE_ACCOUNT_FILE: .config/service_account.json
       SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-      LOG: INFO
-      OPERATIONS_FORMAT: json
       SSL_CHECK: "False"
-
-      # Server URLs (overridable via vars)
-      JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL }}
-      JIRA_PROJECT: ${{ vars.JIRA_PROJECT }}
-      OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
-      ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
-
-      # Prefixes/Selectors (overridable via vars)
-      OPERATIONS_VO_LIST_PREFIX: ${{ vars.OPERATIONS_VO_LIST_PREFIX }}
-      OPERATIONS_VO_ID_CARD_PREFIX: ${{ vars.OPERATIONS_VO_ID_CARD_PREFIX }}
-      OPERATIONS_VOS_REPORT_PREFIX: ${{ vars.OPERATIONS_VOS_REPORT_PREFIX }}
-      ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
-      ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC }}
-      ACCOUNTING_LOCAL_JOB_SELECTOR: ${{ vars.ACCOUNTING_LOCAL_JOB_SELECTOR }}
-      ACCOUNTING_VO_GROUP_SELECTOR: ${{ vars.ACCOUNTING_VO_GROUP_SELECTOR }}
-      ACCOUNTING_DATA_SELECTOR: ${{ vars.ACCOUNTING_DATA_SELECTOR }}
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Calculate Reporting Dates
-        id: dates
-        run: |
-          # Use provided variables if they exist, otherwise calculate last month
-          IFROM="${{ vars.DATE_FROM }}"
-          ITO="${{ vars.DATE_TO }}"
-
-          if [ -z "$IFROM" ] || [ -z "$ITO" ]; then
-            echo "Dates missing or incomplete in vars. Calculating last month..."
-            # Format: YYYY/MM
-            LAST_MONTH_FROM=$(date -d "last month" +%Y/%m)
-            LAST_MONTH_TO=$(date -d "last month" +%Y/%m)
-            
-            # If on macOS (for local act tests on Mac), date command is different
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-              LAST_MONTH_FROM=$(date -v-1m +%Y/%m)
-              LAST_MONTH_TO=$(date -v-1m +%Y/%m)
-            fi
-            
-            [ -z "$IFROM" ] && IFROM=$LAST_MONTH_FROM
-            [ -z "$ITO" ] && ITO=$LAST_MONTH_TO
-          fi
-
-          echo "DATE_FROM=$IFROM" >> $GITHUB_ENV
-          echo "DATE_TO=$ITO" >> $GITHUB_ENV
-          echo "Calculated: $IFROM to $ITO"
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -105,7 +59,6 @@ jobs:
           python -m egi_okr.accounting_cpus
         env:
           ACCOUNTING_SCOPE: cloud
-          ACCOUNTING_METRIC: sum_elap_processors
 
       - name: Run HTC CPU Accounting
         run: |
@@ -131,7 +84,6 @@ jobs:
           python -m egi_okr.accounting_slas
         env:
           ACCOUNTING_SCOPE: cloud
-          ACCOUNTING_METRIC: sum_elap_processors
 
       - name: Run HTC SLA Accounting
         run: |
