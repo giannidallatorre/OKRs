@@ -36,13 +36,24 @@ else
            "universe_domain": "googleapis.com"
     }'
 fi
-# Run workflow with mocked secrets and variables
+# Run workflow using local secrets file if it exists, otherwise use placeholders
+SECRETS_ARG=""
+if [ -f "act_setup/local.secrets" ]; then
+    echo "Using secrets from act_setup/local.secrets..."
+    SECRETS_ARG="--secret-file act_setup/local.secrets"
+else
+    echo "Warning: act_setup/local.secrets not found, using placeholders..."
+    SECRETS_ARG="--secret SERVICE_ACCOUNT_JSON=${SERVICE_ACCOUNT_JSON} --secret JIRA_AUTH_TOKEN=test-token --secret OPERATIONS_API_KEY=test-api-key"
+fi
+
 echo "Running workflow..."
 act --job update-sheet \
-    --secret SERVICE_ACCOUNT_JSON="${SERVICE_ACCOUNT_JSON}" \
+    ${SECRETS_ARG} \
     --secret GOOGLE_SHEET_NAME="EGI_OKR_Test_Verify" \
-    --secret JIRA_AUTH_TOKEN="test-token" \
-    --secret OPERATIONS_API_KEY="test-api-key" \
+    --var JIRA_PROJECT="EGISO" \
+    --var SERVICE_ORDERS_PROJECTKEY="EGISO" \
+    --var COMPLAINS_PROJECTKEY="IMSCC" \
+    --var VIOLATIONS_PROJECTKEY="IMSSLA" \
     --var DATE_FROM="2024/01" \
     --var DATE_TO="2024/03" \
     --bind
