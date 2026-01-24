@@ -155,8 +155,8 @@ def get_env_settings():
         'SSL_CHECK': 'True',
         
         # Google Sheet worksheet defaults
-        'GOOGLE_CLOUD_WORKSHEET': 'Accounting Cloud CPU/h',
-        'GOOGLE_HTC_WORKSHEET': 'Accounting HTC CPU/h',
+        'GOOGLE_CLOUD_WORKSHEET': 'Cloud',
+        'GOOGLE_HTC_WORKSHEET': 'HTC',
         'GOOGLE_VOS_WORKSHEET': 'VOs',
         'GOOGLE_VOS_REPORT_WORKSHEET': 'Report',
         'GOOGLE_ORDERS_WORKSHEET': 'Orders',
