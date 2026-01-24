@@ -180,6 +180,10 @@ def get_env_settings():
             if key not in d or not d[key] or d.get(key) == defaults.get(key):
                  d[key] = d['JIRA_PROJECT']
 
+    # Fallback for GOOGLE_SLAs_SHEET_NAME
+    if 'GOOGLE_SHEET_NAME' in d and ('GOOGLE_SLAs_SHEET_NAME' not in d or not d['GOOGLE_SLAs_SHEET_NAME']):
+        d['GOOGLE_SLAs_SHEET_NAME'] = d['GOOGLE_SHEET_NAME']
+
     return d
 
 def validate_google_credentials(service_info):
