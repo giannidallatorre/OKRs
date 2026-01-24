@@ -278,6 +278,8 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                  print(colourise("red", "[ABORT]"), f"{spreadsheet_env_var} environment variable not set")
                  return None
             sheet = account.open(sheet_name)
+            print(colourise("cyan", "[INFO]"), f"Connected to Spreadsheet: '{sheet.title}'")
+            print(colourise("cyan", "[INFO]"), f"URL: {sheet.url}")
         except gspread.exceptions.SpreadsheetNotFound:
             print(colourise("red", "[ABORT]"), \
                 f"The {spreadsheet_env_var} ({sheet_name}) points to a non-existent sheet")
