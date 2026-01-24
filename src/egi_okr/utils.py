@@ -122,7 +122,7 @@ def get_env_settings():
         'LOG', 'DATE_FROM', 'DATE_TO', 'SSL_CHECK',
         
         # Google / Sheets
-        'SERVICE_ACCOUNT_PATH', 'SERVICE_ACCOUNT_FILE', 'GOOGLE_SHEET_NAME',
+        'SERVICE_ACCOUNT_PATH', 'SERVICE_ACCOUNT_FILE', 'SERVICE_ACCOUNT_JSON', 'GOOGLE_SHEET_NAME',
         'GOOGLE_SERVICE_ORDERS_WORKSHEET', 'GOOGLE_VOS_WORKSHEET', 'GOOGLE_VOS_REPORT_WORKSHEET',
         'GOOGLE_ORDERS_WORKSHEET',
         'GOOGLE_SLAs_CLOUD_WORKSHEET', 'GOOGLE_SLAs_HTC_WORKSHEET',
@@ -169,6 +169,7 @@ def get_env_settings():
         'ISSUETYPE': 'Service SLA Violation',
         'LOG': 'INFO',
         'SSL_CHECK': 'True',
+        'SERVICE_ACCOUNT_FILE': '.config/service_account.json',
         
         # Google Sheet defaults
         'GOOGLE_SHEET_NAME': 'EGI_OKR_Test_Verify',
