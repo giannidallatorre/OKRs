@@ -32,13 +32,23 @@ class CPUAccounting:
         if not self.env.get('ACCOUNTING_SERVER_URL'):
             raise ValueError("ACCOUNTING_SERVER_URL not set")
 
+        # EGI Accounting Portal has migrated to a new Django-based system.
+        # The legacy custom_cloud.php endpoint is deprecated and returns 404.
+        # We use the REST-like URL structure which redirects to the correct portal service.
+        # Pattern: {SERVER}/{SCOPE}/{METRIC}/VO/DATE/{DATE_FROM}/{DATE_TO}/{VO_GROUP}/{LOCAL_JOBS}/{DATA_SELECTOR}/
+        
+        # Ensure dates are in YYYY/MM format (they should be, but let's be safe)
+        date_from = self.env['DATE_FROM'].replace("-", "/")
+        date_to = self.env['DATE_TO'].replace("-", "/")
+        
         _url = (
-            f"{self.env['ACCOUNTING_SERVER_URL']}/custom_cloud.php?"
-            f"query={self.env['ACCOUNTING_METRIC']}&option=REGION&"
-            f"sYear={self.env['DATE_FROM'][:4]}&sMonth={self.env['DATE_FROM'][-2:]}&"
-            f"eYear={self.env['DATE_TO'][:4]}&eMonth={self.env['DATE_TO'][-2:]}&"
-            f"yrange=VO&xrange=DATE&localJobs={self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}&"
-            f"groupVO={self.env['ACCOUNTING_VO_GROUP_SELECTOR']}&tree=cloud&optval=&json=API"
+            f"{self.env['ACCOUNTING_SERVER_URL']}/"
+            f"{self.env['ACCOUNTING_SCOPE']}/"
+            f"{self.env['ACCOUNTING_METRIC']}/"
+            f"VO/DATE/{date_from}/{date_to}/"
+            f"{self.env['ACCOUNTING_VO_GROUP_SELECTOR']}/"
+            f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
+            f"{self.env['ACCOUNTING_DATA_SELECTOR']}/"
         )
 
         headers = {"Accept": "application/json"}

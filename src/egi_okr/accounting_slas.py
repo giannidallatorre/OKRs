@@ -125,7 +125,22 @@ class SLAsAccounting:
         return vos
 
     def fetch_vo_accounting(self, vo_name):
-        url = f"{self.env['ACCOUNTING_SERVER_URL']}/{self.env['ACCOUNTING_SCOPE']}/{self.env['ACCOUNTING_METRIC']}/REGION/Year/{self.env['DATE_FROM']}/{self.env['DATE_TO']}/custom-{vo_name}/{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/{self.env['ACCOUNTING_DATA_SELECTOR']}/{self.env['ACCOUNTING_DATA_SELECTOR']}/"
+        # EGI Accounting Portal has migrated to a new Django-based system.
+        # We use the REST-like URL structure for single VO accounting.
+        # Pattern: {SERVER}/{SCOPE}/{METRIC}/REGION/Year/{DATE_FROM}/{DATE_TO}/custom-{VO}/{LOCAL_JOBS}/{DATA_SELECTOR}/
+        
+        date_from = self.env['DATE_FROM'].replace("-", "/")
+        date_to = self.env['DATE_TO'].replace("-", "/")
+        
+        url = (
+            f"{self.env['ACCOUNTING_SERVER_URL']}/"
+            f"{self.env['ACCOUNTING_SCOPE']}/"
+            f"{self.env['ACCOUNTING_METRIC']}/"
+            f"REGION/Year/{date_from}/{date_to}/"
+            f"custom-{vo_name}/"
+            f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
+            f"{self.env['ACCOUNTING_DATA_SELECTOR']}/"
+        )
         
         verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
         try:

@@ -137,15 +137,48 @@ def get_env_settings():
         'CHECKIN_TOKEN_ENDPOINT', 'CHECKIN_REFRESH_TOKEN', 'CHECKIN_CLIENT_ID', 'CHECKIN_CLIENT_SECRET'
     ]
 
+    # Define production-standard defaults
+    defaults = {
+        'ACCOUNTING_SERVER_URL': 'https://accounting.egi.eu',
+        'ACCOUNTING_SCOPE': 'cloud',
+        'ACCOUNTING_METRIC': 'sum_elap_processors',
+        'ACCOUNTING_VO_GROUP_SELECTOR': 'egi',
+        'ACCOUNTING_LOCAL_JOB_SELECTOR': 'onlyinfrajobs',
+        'ACCOUNTING_DATA_SELECTOR': 'JSON',
+        'OPERATIONS_SERVER_URL': 'https://operations-portal.egi.eu/api',
+        'OPERATIONS_FORMAT': 'json',
+        'OPERATIONS_VO_LIST_PREFIX': '/vo-list',
+        'OPERATIONS_VO_ID_CARD_PREFIX': '/vo-id-card',
+        'OPERATIONS_VOS_REPORT_PREFIX': '/vo-report',
+        'JIRA_SERVER_URL': 'https://jira.egi.eu/',
+        'LOG': 'INFO',
+        'SSL_CHECK': 'True',
+        
+        # Google Sheet worksheet defaults
+        'GOOGLE_CLOUD_WORKSHEET': 'Accounting Cloud CPU/h',
+        'GOOGLE_HTC_WORKSHEET': 'Accounting HTC CPU/h',
+        'GOOGLE_VOS_WORKSHEET': 'VOs with User Accounting',
+        'GOOGLE_VOS_REPORT_WORKSHEET': 'VOs Report',
+        'GOOGLE_ORDERS_WORKSHEET': 'Service Orders',
+        'GOOGLE_SLAs_WORKSHEET': 'SLAs',
+        'GOOGLE_SLAs_CLOUD_WORKSHEET': 'SLA Accounting Cloud',
+        'GOOGLE_SLAs_HTC_WORKSHEET': 'SLA Accounting HTC',
+        'ACTIVE_SLAs_FILE': 'active_slas.json'
+    }
+
+    # Populate with defaults first
+    d.update(defaults)
+
     for key in keys:
-        if key in os.environ:
-            d[key] = os.environ[key]
+        val = os.environ.get(key)
+        if val: # Only override if the environment variable is not None AND not empty
+            d[key] = val
     
     # Cascade JIRA_PROJECT to specific keys if they are missing
     if 'JIRA_PROJECT' in d:
         for key in ['SERVICE_ORDERS_PROJECTKEY', 'COMPLAINS_PROJECTKEY', 'VIOLATIONS_PROJECTKEY']:
-            if key not in d or not d[key]:
-                d[key] = d['JIRA_PROJECT']
+            if key not in d or not d[key] or d.get(key) == defaults.get(key):
+                 d[key] = d['JIRA_PROJECT']
 
     return d
 

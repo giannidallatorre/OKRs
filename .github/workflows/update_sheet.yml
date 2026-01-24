@@ -5,16 +5,16 @@ on:
     branches:
       - github-actions
     paths:
-      - 'src/egi_okr/**'
-      - '.github/workflows/update_sheet.yml'
+      - "src/egi_okr/**"
+      - ".github/workflows/update_sheet.yml"
   schedule:
-    - cron: '0 4 1 * *'
+    - cron: "0 4 1 * *"
   workflow_dispatch:
     inputs:
       debug_enabled:
-        description: 'Debug mode'
+        description: "Debug mode"
         required: false
-        default: 'false'
+        default: "false"
 
 jobs:
   update-sheet:
@@ -23,119 +23,119 @@ jobs:
       # Use production sheet only for scheduled runs.
       # Push and Manual runs use the Test spreadsheet.
       GOOGLE_SHEET_NAME: ${{ github.event_name == 'schedule' && secrets.GOOGLE_SHEET_NAME || 'EGI_OKR_Test_Verify' }}
-      
+
       # Common environment variables
       PYTHONPATH: src
       SERVICE_ACCOUNT_FILE: .config/service_account.json
       SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
       LOG: INFO
       OPERATIONS_FORMAT: json
-      SSL_CHECK: 'False'
-      
-      # Default Server URLs (can be overridden by vars)
-      JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL || 'https://jira.egi.eu/' }}
-      JIRA_PROJECT: ${{ vars.JIRA_PROJECT || 'EOSC' }}
-      OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL || 'https://operations-portal.egi.eu/api' }}
-      ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL || 'https://accounting.egi.eu' }}
-      
-      # Default Prefixes/Selectors
-      OPERATIONS_VO_LIST_PREFIX: ${{ vars.OPERATIONS_VO_LIST_PREFIX || '/vo-list' }}
-      OPERATIONS_VO_ID_CARD_PREFIX: ${{ vars.OPERATIONS_VO_ID_CARD_PREFIX || '/vo-id-card' }}
-      OPERATIONS_VOS_REPORT_PREFIX: ${{ vars.OPERATIONS_VOS_REPORT_PREFIX || '/vo-report' }}
-      ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE || 'cloud' }}
-      ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC || 'cpu' }}
-      ACCOUNTING_LOCAL_JOB_SELECTOR: ${{ vars.ACCOUNTING_LOCAL_JOB_SELECTOR || 'only-local-jobs' }}
-      ACCOUNTING_VO_GROUP_SELECTOR: ${{ vars.ACCOUNTING_VO_GROUP_SELECTOR || 'vo-group' }}
-      ACCOUNTING_DATA_SELECTOR: ${{ vars.ACCOUNTING_DATA_SELECTOR || 'data' }}
+      SSL_CHECK: "False"
+
+      # Server URLs (overridable via vars)
+      JIRA_SERVER_URL: ${{ vars.JIRA_SERVER_URL }}
+      JIRA_PROJECT: ${{ vars.JIRA_PROJECT }}
+      OPERATIONS_SERVER_URL: ${{ vars.OPERATIONS_SERVER_URL }}
+      ACCOUNTING_SERVER_URL: ${{ vars.ACCOUNTING_SERVER_URL }}
+
+      # Prefixes/Selectors (overridable via vars)
+      OPERATIONS_VO_LIST_PREFIX: ${{ vars.OPERATIONS_VO_LIST_PREFIX }}
+      OPERATIONS_VO_ID_CARD_PREFIX: ${{ vars.OPERATIONS_VO_ID_CARD_PREFIX }}
+      OPERATIONS_VOS_REPORT_PREFIX: ${{ vars.OPERATIONS_VOS_REPORT_PREFIX }}
+      ACCOUNTING_SCOPE: ${{ vars.ACCOUNTING_SCOPE }}
+      ACCOUNTING_METRIC: ${{ vars.ACCOUNTING_METRIC }}
+      ACCOUNTING_LOCAL_JOB_SELECTOR: ${{ vars.ACCOUNTING_LOCAL_JOB_SELECTOR }}
+      ACCOUNTING_VO_GROUP_SELECTOR: ${{ vars.ACCOUNTING_VO_GROUP_SELECTOR }}
+      ACCOUNTING_DATA_SELECTOR: ${{ vars.ACCOUNTING_DATA_SELECTOR }}
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Calculate Reporting Dates
-      id: dates
-      run: |
-        # Use provided variables if they exist, otherwise calculate last month
-        IFROM="${{ vars.DATE_FROM }}"
-        ITO="${{ vars.DATE_TO }}"
-        
-        if [ -z "$IFROM" ] || [ -z "$ITO" ]; then
-          echo "Dates missing or incomplete in vars. Calculating last month..."
-          # Format: YYYY/MM
-          LAST_MONTH_FROM=$(date -d "last month" +%Y/%m)
-          LAST_MONTH_TO=$(date -d "last month" +%Y/%m)
-          
-          # If on macOS (for local act tests on Mac), date command is different
-          if [[ "$OSTYPE" == "darwin"* ]]; then
-            LAST_MONTH_FROM=$(date -v-1m +%Y/%m)
-            LAST_MONTH_TO=$(date -v-1m +%Y/%m)
+      - name: Calculate Reporting Dates
+        id: dates
+        run: |
+          # Use provided variables if they exist, otherwise calculate last month
+          IFROM="${{ vars.DATE_FROM }}"
+          ITO="${{ vars.DATE_TO }}"
+
+          if [ -z "$IFROM" ] || [ -z "$ITO" ]; then
+            echo "Dates missing or incomplete in vars. Calculating last month..."
+            # Format: YYYY/MM
+            LAST_MONTH_FROM=$(date -d "last month" +%Y/%m)
+            LAST_MONTH_TO=$(date -d "last month" +%Y/%m)
+            
+            # If on macOS (for local act tests on Mac), date command is different
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+              LAST_MONTH_FROM=$(date -v-1m +%Y/%m)
+              LAST_MONTH_TO=$(date -v-1m +%Y/%m)
+            fi
+            
+            [ -z "$IFROM" ] && IFROM=$LAST_MONTH_FROM
+            [ -z "$ITO" ] && ITO=$LAST_MONTH_TO
           fi
-          
-          [ -z "$IFROM" ] && IFROM=$LAST_MONTH_FROM
-          [ -z "$ITO" ] && ITO=$LAST_MONTH_TO
-        fi
-        
-        echo "DATE_FROM=$IFROM" >> $GITHUB_ENV
-        echo "DATE_TO=$ITO" >> $GITHUB_ENV
-        echo "Calculated: $IFROM to $ITO"
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        
-    - name: Setup Service Account
-      if: env.SERVICE_ACCOUNT_JSON != ''
-      run: |
-        mkdir -p .config
-        echo '${{ env.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
 
-    - name: Run Service Orders Accounting
-      env:
-        GOOGLE_ORDERS_WORKSHEET: ${{ vars.GOOGLE_ORDERS_WORKSHEET || 'Orders' }}
-        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
-        JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
-        JIRA_PROJECT: ${{ env.JIRA_PROJECT }}
-        SERVICE_ORDERS_PROJECTKEY: ${{ vars.SERVICE_ORDERS_PROJECTKEY }}
-        SERVICE_ORDERS_ISSUETYPE: ${{ vars.SERVICE_ORDERS_ISSUETYPE || 'Service Order' }}
-      run: |
-        python -m egi_okr.accounting_orders
+          echo "DATE_FROM=$IFROM" >> $GITHUB_ENV
+          echo "DATE_TO=$ITO" >> $GITHUB_ENV
+          echo "Calculated: $IFROM to $ITO"
 
-    - name: Run CPU Accounting
-      env:
-        GOOGLE_CLOUD_WORKSHEET: ${{ vars.GOOGLE_CLOUD_WORKSHEET || 'Cloud' }}
-        GOOGLE_HTC_WORKSHEET: ${{ vars.GOOGLE_HTC_WORKSHEET || 'HTC' }}
-        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
-      run: |
-        python -m egi_okr.accounting_cpus
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
 
-    - name: Run Users Accounting
-      env:
-        GOOGLE_VOS_WORKSHEET: ${{ vars.GOOGLE_VOS_WORKSHEET || 'VOs' }}
-        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
-        OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
-      run: |
-        python -m egi_okr.accounting_users
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    - name: Run VO Reports
-      env:
-        GOOGLE_VOS_REPORT_WORKSHEET: ${{ vars.GOOGLE_VOS_REPORT_WORKSHEET || 'Report' }}
-        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
-        OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
-      run: |
-        python -m egi_okr.vo_reports
-    
-    - name: Run SLA Accounting
-      env:
-        GOOGLE_SLAs_WORKSHEET: ${{ vars.GOOGLE_SLAs_WORKSHEET || 'SLAs' }}
-        GOOGLE_SLAs_CLOUD_WORKSHEET: ${{ vars.GOOGLE_SLAs_CLOUD_WORKSHEET || 'CloudReport' }}
-        GOOGLE_SLAs_HTC_WORKSHEET: ${{ vars.GOOGLE_SLAs_HTC_WORKSHEET || 'HTCReport' }}
-        GOOGLE_SLAs_SHEET_NAME: ${{ secrets.GOOGLE_SLAs_SHEET_NAME || env.GOOGLE_SHEET_NAME }}
-        GOOGLE_SHEET_NAME: ${{ env.GOOGLE_SHEET_NAME }}
-        ACTIVE_SLAs_FILE: active_slas.json
-      run: |
-        python -m egi_okr.accounting_slas
+      - name: Setup Service Account
+        if: env.SERVICE_ACCOUNT_JSON != ''
+        run: |
+          mkdir -p .config
+          echo '${{ env.SERVICE_ACCOUNT_JSON }}' > .config/service_account.json
+
+      - name: Run Service Orders Accounting
+        env:
+          JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
+        run: |
+          python -m egi_okr.accounting_orders
+
+      - name: Run Cloud CPU Accounting
+        run: |
+          python -m egi_okr.accounting_cpus
+        env:
+          ACCOUNTING_SCOPE: cloud
+          ACCOUNTING_METRIC: sum_elap_processors
+
+      - name: Run HTC CPU Accounting
+        run: |
+          python -m egi_okr.accounting_cpus
+        env:
+          ACCOUNTING_SCOPE: egi
+          ACCOUNTING_METRIC: elap_processors
+
+      - name: Run Users Accounting
+        env:
+          OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+        run: |
+          python -m egi_okr.accounting_users
+
+      - name: Run VO Reports
+        env:
+          OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+        run: |
+          python -m egi_okr.vo_reports
+
+      - name: Run Cloud SLA Accounting
+        run: |
+          python -m egi_okr.accounting_slas
+        env:
+          ACCOUNTING_SCOPE: cloud
+          ACCOUNTING_METRIC: sum_elap_processors
+
+      - name: Run HTC SLA Accounting
+        run: |
+          python -m egi_okr.accounting_slas
+        env:
+          ACCOUNTING_SCOPE: egi
+          ACCOUNTING_METRIC: elap_processors
