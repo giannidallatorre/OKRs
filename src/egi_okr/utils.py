@@ -151,6 +151,11 @@ def get_env_settings():
         'OPERATIONS_VO_ID_CARD_PREFIX': '/vo-id-card',
         'OPERATIONS_VOS_REPORT_PREFIX': '/vo-report',
         'JIRA_SERVER_URL': 'https://jira.egi.eu/',
+        'JIRA_PROJECT': 'EOSC',
+        'SERVICE_ORDERS_PROJECTKEY': 'EGISO',
+        'COMPLAINS_PROJECTKEY': 'IMSCC',
+        'VIOLATIONS_PROJECTKEY': 'IMSSLA',
+        'ISSUETYPE': 'Service SLA Violation',
         'LOG': 'INFO',
         'SSL_CHECK': 'True',
         
