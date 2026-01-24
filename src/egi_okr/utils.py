@@ -156,6 +156,7 @@ def get_env_settings():
         
         # Google Sheet defaults
         'GOOGLE_SHEET_NAME': 'EGI_OKR_Test_Verify',
+        'GOOGLE_SLAs_SHEET_NAME': 'EGI_OKR_Test_Verify',
         'GOOGLE_CLOUD_WORKSHEET': 'Cloud',
         'GOOGLE_HTC_WORKSHEET': 'HTC',
         'GOOGLE_VOS_WORKSHEET': 'VOs',
@@ -164,6 +165,7 @@ def get_env_settings():
         'GOOGLE_SLAs_WORKSHEET': 'SLAs',
         'GOOGLE_SLAs_CLOUD_WORKSHEET': 'CloudReport',
         'GOOGLE_SLAs_HTC_WORKSHEET': 'HTCReport',
+        'GOOGLE_OLAs_WORKSHEET': 'OLAs',
         'ACTIVE_SLAs_FILE': 'active_slas.json'
     }
 
