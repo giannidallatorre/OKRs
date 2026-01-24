@@ -34,28 +34,27 @@ class TestUsersAccounting(unittest.TestCase):
         
         # Mock find return values (Columns)
         # Using side_effect to return mocks with specific .col and .row attributes
+        find_calls = []
         def find_side_effect(arg):
+            if arg == '2024.01-03':
+                if arg not in find_calls:
+                    find_calls.append(arg)
+                    return None # First call: not found
+                # Subsequent calls: found
+                m = MagicMock()
+                m.col = 3
+                return m
+            
             m = MagicMock()
-            if arg == '2024.01-03': # New period
-                # Wait, if it wasn't inserted yet, find fails? 
-                # The code calls update_headers first.
-                # Then it calls find(accounting_period).
-                # update_headers inserts col if not present.
-                # So we assume it works.
-                m.col = 3 
-            elif arg == 'Registered Users':
+            if arg == 'Registered Users':
                 m.col = 4
             elif arg == 'Total Users':
                 m.col = 5
             elif arg == 'ALICE': # VO cell
                 m.row = 2
                 m.col = 1
-            elif arg == 'CMS': # New VO?
-                raise Exception("CellNotFound") # gspread exception simulated
             else:
-                 # Default
-                 m.col = 99
-                 m.row = 99
+                 return None
             return m
             
         mock_worksheet.find.side_effect = find_side_effect
@@ -89,9 +88,8 @@ class TestUsersAccounting(unittest.TestCase):
         
         # 2. Existing VO updated?
         # ALICE update should happen.
-        # worksheet.update_cell called for ALICE rows.
-        # We can check specific calls but loose check is fine.
-        self.assertTrue(mock_worksheet.update_cell.called)
+        # We check for batch update called with gspread.Cell objects.
+        mock_worksheet.update_cells.assert_called()
         
         # 3. New VO inserted?
         # CMS is new. Should call insert_row.

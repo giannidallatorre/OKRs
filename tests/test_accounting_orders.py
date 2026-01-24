@@ -94,7 +94,7 @@ class TestOrdersAccounting(unittest.TestCase):
         self.app.run()
         
         # Assert updated
-        mock_worksheet.update_cell.assert_called()
+        mock_worksheet.update_cells.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

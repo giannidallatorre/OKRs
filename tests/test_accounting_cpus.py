@@ -14,6 +14,7 @@ class TestCPUAccounting(unittest.TestCase):
             'DATE_TO': '2024/03',
             'ACCOUNTING_VO_GROUP_SELECTOR': 'egi',
             'ACCOUNTING_LOCAL_JOB_SELECTOR': 'onlyinfrajobs',
+            'ACCOUNTING_DATA_SELECTOR': 'JSON',
             'LOG': 'DEBUG'
         }
         self.app = CPUAccounting(self.env)
@@ -29,8 +30,8 @@ class TestCPUAccounting(unittest.TestCase):
     @patch('egi_okr.accounting_cpus.requests.get')
     def test_fetch_accounting_data_network_error(self, mock_get):
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
-        with self.assertRaises(RuntimeError):
-            self.app.fetch_accounting_data()
+        data = self.app.fetch_accounting_data()
+        self.assertEqual(data, [])
 
     def test_process_accounting_data(self):
         data = [
