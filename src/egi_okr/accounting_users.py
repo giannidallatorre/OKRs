@@ -38,25 +38,48 @@ class UsersAccounting:
             return None
 
     def update_headers(self, worksheet, accounting_period):
-        """Ensure the reporting period column exists and is correctly positioned."""
+        """Ensure all required columns exist and are correctly positioned."""
+        # 1. Ensure base columns exist
+        headers = worksheet.row_values(1)
+        if not headers:
+            headers = ["VO", "Registered Users", "Total Users"]
+            worksheet.update('A1:C1', [headers])
+        else:
+            if "VO" not in headers:
+                worksheet.insert_cols([["VO"]], 1, value_input_option='RAW')
+                headers = worksheet.row_values(1)
+            
+            if "Registered Users" not in headers:
+                # Find last "static" column or insert at end
+                worksheet.insert_cols([["Registered Users"]], len(headers) + 1, value_input_option='RAW')
+                headers = worksheet.row_values(1)
+
+            if "Total Users" not in headers:
+                worksheet.insert_cols([["Total Users"]], len(headers) + 1, value_input_option='RAW')
+                headers = worksheet.row_values(1)
+
+        # 2. Ensure period column exists
         existing_col = self.get_column_by_label(worksheet, accounting_period)
-        
         if existing_col:
             print(f"\tThe header '{accounting_period}' is *already* in the Worksheet (column {existing_col})")
             return existing_col
 
-        # If not found, find where to insert
-        headers = worksheet.row_values(1)
-        y_pos = 2  # Start after VO column
+        # Find where to insert period (between base columns and user columns)
+        # We want: [VO] [Period1] [Period2] ... [Registered Users] [Total Users]
+        reg_col = self.get_column_by_label(worksheet, "Registered Users")
+        y_pos = reg_col # Insert before Registered Users
         
-        if headers:
-            for header in headers:
-                if "VO" not in header and "Users" not in header:
-                    if header < accounting_period:
-                        y_pos += 1
-                    else:
-                        break
-        
+        # Sort among existing periods
+        current_headers = worksheet.row_values(1)
+        for i, header in enumerate(current_headers):
+            if i == 0: continue # Skip VO
+            if header == "Registered Users": break
+            if header < accounting_period:
+                y_pos = i + 2 # Keep searching
+            else:
+                y_pos = i + 1
+                break
+
         print(f"Adding '{accounting_period}' at column: {y_pos}")
         worksheet.insert_cols(
             [[accounting_period]], 
@@ -109,11 +132,15 @@ class UsersAccounting:
         total_users_col = safe_find_col('Total Users')
 
         if not period_col or not reg_users_col or not total_users_col:
-             print(colourise("red", "[ERROR]"), "Missing required columns in worksheet")
+             # This should not happen now with updated update_headers, but just in case
+             print(colourise("red", "[ERROR]"), f"Missing required columns in worksheet after header update. P:{period_col} R:{reg_users_col} T:{total_users_col}")
              return
 
         # Get all VO names in column 1 to avoid repeated findall
-        all_col1_values = worksheet.col_values(1)
+        all_rows = worksheet.get_all_values()
+        all_col1_values = [r[0] if r else "" for r in all_rows]
+        
+        cells_to_update = []
         
         # 1. Update existing VOs
         remaining_vos = []
@@ -132,46 +159,48 @@ class UsersAccounting:
                      continue
                 
                 worksheet.update_cell(row_index, period_col, vo['users'])
-                worksheet.update_cell(row_index, reg_users_col, vo['active_members'])
-                worksheet.update_cell(row_index, total_users_col, vo['total_members'])
+                # Buffer updates
+                cells_to_update.append(gspread.Cell(row_index, period_col, vo['users']))
+                cells_to_update.append(gspread.Cell(row_index, reg_users_col, vo['active_members']))
+                cells_to_update.append(gspread.Cell(row_index, total_users_col, vo['total_members']))
                 
                 if self.env.get('LOG') == "DEBUG":
-                     print(colourise("green", "[LOG]"), f"Updated {vo_name}")
+                     print(colourise("green", "[LOG]"), f"Buffered update for {vo_name}")
 
             except Exception as e:
-                # Handle quota limit
-                if "Quota exceeded" in str(e):
-                    print(colourise("red", "[WARNING]"), "Quota exceeded, waiting 120s...")
-                    time.sleep(120)
-                    remaining_vos.append(vo) 
-                else:
-                    print(colourise("red", "[ERROR]"), f"Error updating {vo_name}: {e}")
+                print(colourise("red", "[ERROR]"), f"Error preparing update for {vo_name}: {e}")
 
         # 2. Insert new VOs
         if remaining_vos:
             print(colourise("cyan", "\n[INFO]"), "\tInserting new VOs..")
-            
-            # Re-fetch header positions as cols might have shifted? No, we only inserted cols at start.
-            # But get_vo_position needs updated sheet data if we insert rows.
             
             for vo in remaining_vos:
                 try:
                     row_index = self.get_vo_position(worksheet, vo['name'])
                     print(f"Insert {vo['name']} at row {row_index}")
                     
-                    # Insert row
-                    worksheet.insert_row(['', ''], index=row_index)
+                    # We still have to insert rows one by one, but we can buffer the cell data
+                    worksheet.insert_row([vo['name']], index=row_index)
                     
-                    worksheet.update_cell(row_index, 1, vo['name'])
-                    worksheet.update_cell(row_index, period_col, vo['users'])
-                    worksheet.update_cell(row_index, reg_users_col, vo['active_members'])
-                    worksheet.update_cell(row_index, total_users_col, vo['total_members'])
+                    # Update cell list for the new row (columns might have shifted? No, we only insert rows below/above)
+                    cells_to_update.append(gspread.Cell(row_index, period_col, vo['users']))
+                    cells_to_update.append(gspread.Cell(row_index, reg_users_col, vo['active_members']))
+                    cells_to_update.append(gspread.Cell(row_index, total_users_col, vo['total_members']))
                     
                 except Exception as e:
                     if "Quota exceeded" in str(e):
-                        print(colourise("red", "[WARNING]"), "Quota exceeded, waiting 120s...")
-                        time.sleep(120)
-                        print(colourise("red", "[ERROR]"), f"Error inserting {vo['name']}: {e}")
+                        print(colourise("red", "[WARNING]"), "Quota exceeded during row insertion, waiting 60s...")
+                        time.sleep(60)
+                    print(colourise("red", "[ERROR]"), f"Error inserting {vo['name']}: {e}")
+
+        # 3. Perform batch update
+        if cells_to_update:
+            print(colourise("cyan", "[INFO]"), f"Performing batch update of {len(cells_to_update)} cells...")
+            try:
+                # Group updates to stay under quota if possible, though update_cells is already a batch
+                worksheet.update_cells(cells_to_update, value_input_option='RAW')
+            except Exception as e:
+                print(colourise("red", "[ERROR]"), f"Failed batch update: {e}")
 
         if remaining_vos:
             print(colourise("cyan", "[INFO]"), f"Processed/Added {len(remaining_vos)} new VOs.")
@@ -201,7 +230,10 @@ class UsersAccounting:
 
         self.update_vos(worksheet, vos_stats, accounting_period)
         
-        worksheet.insert_note("A1", "Last Update on: " + timestamp)
+        try:
+            worksheet.insert_note("A1", "Last Update on: " + timestamp)
+        except:
+            pass
 
 
 if __name__ == "__main__":

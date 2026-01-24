@@ -111,6 +111,18 @@ class CPUAccounting:
             "textFormat": {"fontSize": 11}
         })
 
+    def update_headers(self, worksheet, accounting_period):
+        """Ensure base headers exist."""
+        headers = ["Period", "CPU/h", "Total VOs", "VOs List", "No CPU Count", "No CPU List", "Diff"]
+        existing_headers = worksheet.row_values(1)
+        if not existing_headers:
+            worksheet.update('A1:G1', [headers])
+        else:
+            # Check if Period is in col 1
+            if "Period" not in existing_headers[0]:
+                worksheet.insert_cols([[h] for h in headers], 1, value_input_option='RAW')
+        return
+
     def update_worksheet(self, summary):
         scope = self.env.get('ACCOUNTING_SCOPE', '')
         # Determine correct worksheet key
@@ -127,6 +139,7 @@ class CPUAccounting:
         
         try:
             self.format_worksheet(worksheet)
+            self.update_headers(worksheet, accounting_period)
             
             timestamp = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 

@@ -120,6 +120,34 @@ class OrdersAccounting:
                     break
         return row
 
+    def update_headers(self, worksheet, reporting_period):
+        """Ensure base headers and period column exist."""
+        headers = worksheet.row_values(1)
+        if not headers:
+            headers = ["Service"]
+            worksheet.update('A1', [["Service"]])
+        elif "Service" not in headers:
+            worksheet.insert_cols([["Service"]], 1, value_input_option='RAW')
+            headers = worksheet.row_values(1)
+
+        # Ensure period column exists
+        period_col = self.get_column_by_label(worksheet, reporting_period)
+        if period_col:
+            return period_col
+
+        # find where to insert
+        period_col = 2
+        if headers:
+            for h in headers:
+                if h and h != "Service" and h < reporting_period:
+                    period_col += 1
+                else:
+                    break
+        
+        print(f"Adding period {reporting_period} at column {period_col}")
+        worksheet.insert_cols([[reporting_period]], period_col, inherit_from_before=True)
+        return period_col
+
     def update_sheet_orders(self, worksheet, reporting_period, buckets):
         # Format
         worksheet.format("A1:P1", {
@@ -132,25 +160,14 @@ class OrdersAccounting:
             "textFormat": {"fontSize": 10}
         })
 
-        # Ensure period column exists
-        period_col = self.get_column_by_label(worksheet, reporting_period)
-        if not period_col:
-            # find where to insert
-            headers = worksheet.row_values(1)
-            period_col = 2
-            if headers:
-                for h in headers:
-                    if h and h != "Service" and h < reporting_period:
-                        period_col += 1
-                    else:
-                        break
-            
-            print(f"Adding period {reporting_period} at column {period_col}")
-            worksheet.insert_cols([[reporting_period]], period_col, inherit_from_before=True)
+        # Ensure headers exist
+        period_col = self.update_headers(worksheet, reporting_period)
 
         # Get all services in column 1
-        all_services = worksheet.col_values(1)
+        all_rows = worksheet.get_all_values()
+        all_services = [r[0] if r else "" for r in all_rows]
         remaining_services = []
+        cells_to_update = []
 
         # 1. Update Existing
         for service_name, so_list in buckets.items():
@@ -164,13 +181,18 @@ class OrdersAccounting:
                     continue
                 
                 so_string = ', '.join(so_list)
-                worksheet.update_cell(row_index, period_col, len(so_list))
-                worksheet.insert_note(
-                    gspread.utils.rowcol_to_a1(row_index, period_col),
-                    so_string
-                )
+                cells_to_update.append(gspread.Cell(row_index, period_col, len(so_list)))
+                
+                try:
+                    worksheet.insert_note(
+                        gspread.utils.rowcol_to_a1(row_index, period_col),
+                        so_string
+                    )
+                except:
+                    pass
+
                 if self.env.get('LOG') == "DEBUG":
-                    print(f"Updated {service_name}: {len(so_list)} orders")
+                    print(f"Buffered update for {service_name}: {len(so_list)} orders")
 
             except Exception as e:
                 if "Quota exceeded" in str(e):
@@ -183,6 +205,31 @@ class OrdersAccounting:
         if remaining_services:
             print(colourise("cyan", "\n[INFO]"), "Adding new services...")
             for service_name in remaining_services:
+                so_list = buckets[service_name]
+                try:
+                    row_index = self.get_service_position(worksheet, service_name)
+                    print(f"Insert {service_name} at row {row_index}")
+                    worksheet.insert_row([service_name], index=row_index)
+                    
+                    cells_to_update.append(gspread.Cell(row_index, period_col, len(so_list)))
+                    so_string = ', '.join(so_list)
+                    try:
+                        worksheet.insert_note(
+                            gspread.utils.rowcol_to_a1(row_index, period_col),
+                            so_string
+                        )
+                    except:
+                        pass
+                except Exception as e:
+                    print(colourise("red", "[ERROR]"), f"Failed to insert {service_name}: {e}")
+
+        # 3. Perform batch update
+        if cells_to_update:
+            print(colourise("cyan", "[INFO]"), f"Performing batch update of {len(cells_to_update)} cells...")
+            try:
+                worksheet.update_cells(cells_to_update, value_input_option='RAW')
+            except Exception as e:
+                print(colourise("red", "[ERROR]"), f"Failed batch update: {e}")
                 so_list = buckets[service_name]
                 try:
                     row_index = self.get_service_position(worksheet, service_name)

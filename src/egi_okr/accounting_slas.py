@@ -176,6 +176,7 @@ class SLAsAccounting:
         print(colourise("green", "\n[INFO]"), "Fetching accounting records...")
         
         # Iterate SLAs
+        cells_to_update = []
         for vo in slas:
             # Check if the reporting period is within the SLA start and end dates.
             # Note: Assumes compatible date string formats.
@@ -191,22 +192,36 @@ class SLAsAccounting:
                             val = record['Total']
                             total_cpu += val
                               
-                            # Update Sheet
+                            # Buffer update
                             print(f"- {vo['Name']}: {val}")
-                              
-                            vo_col = self.ensure_vo_column(worksheet, vo['Name'])
-                            worksheet.update_cell(period_pos, vo_col, val)
+                            try:
+                                vo_col = self.ensure_vo_column(worksheet, vo['Name'])
+                                cells_to_update.append(gspread.Cell(period_pos, vo_col, val))
+                            except Exception as e:
+                                print(f"Error buffering {vo['Name']}: {e}")
         
         # Update Total
         print(colourise("cyan", "\n[REPORT]"), f"Total CPU: {total_cpu}")
         
         try:
              total_cell = worksheet.find("TOTAL")
-             worksheet.update_cell(period_pos, total_cell.col, total_cpu)
+             if total_cell:
+                 cells_to_update.append(gspread.Cell(period_pos, total_cell.col, total_cpu))
         except:
              pass
 
-        worksheet.insert_note("A1", f"Last update: {datetime.datetime.now()}")
+        # Perform batch update
+        if cells_to_update:
+            print(colourise("cyan", "[INFO]"), f"Performing batch update of {len(cells_to_update)} cells...")
+            try:
+                worksheet.update_cells(cells_to_update, value_input_option='RAW')
+            except Exception as e:
+                print(colourise("red", "[ERROR]"), f"Failed batch update: {e}")
+
+        try:
+            worksheet.insert_note("A1", f"Last update: {datetime.datetime.now()}")
+        except:
+            pass
 
 if __name__ == "__main__":
     app = SLAsAccounting()
