@@ -11,14 +11,11 @@ jobs:
         runs-on: ubuntu-latest
 
         env:
-            # Dummy values for tests that might require them (though mocks should handle it)
-            # These prevent KeyError in setup phases if mocks aren't hit early enough
+            # Minimal environment for tests.
+            # Note: All external API calls are mocked via @patch decorators in tests.
+            # These env vars are kept only for logging/config initialization.
+            PYTHONPATH: src
             LOG: INFO
-            DATE_FROM: "2024/04"
-            DATE_TO: "2024/06"
-            GOOGLE_SHEET_NAME: "test_sheet"
-            JIRA_SERVER_URL: "https://jira.example.com/"
-            SERVICE_ACCOUNT_FILE: "dummy.json"
 
         steps:
             - uses: actions/checkout@v4
@@ -36,5 +33,4 @@ jobs:
 
             - name: Run tests
               run: |
-                  export PYTHONPATH=$PYTHONPATH:$(pwd)/src
                   pytest tests/ --cov=src/egi_okr --cov-report=term-missing
