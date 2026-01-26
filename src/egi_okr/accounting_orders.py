@@ -231,7 +231,7 @@ class OrdersAccounting:
             except Exception as e:
                 print(colourise("red", "[ERROR]"), f"Failed batch update: {e}")
 
-    def run(self):
+    def run(self, dry_run=False):
         print(f"\nLog Level = {colourise('cyan', self.env.get('LOG', 'INFO'))}")
         
         reporting_period = format_reporting_period(self.env)
@@ -244,17 +244,31 @@ class OrdersAccounting:
         # Initialize the Google Worksheet.
         worksheet = init_GWorkSheet(self.env, 'GOOGLE_ORDERS_WORKSHEET')
         
-        if not worksheet:
+        if not worksheet and not dry_run:
             return
 
         
-        orders = get_service_orders(self.env)
+        try:
+            orders = get_service_orders(self.env)
+        except KeyError as e:
+            if dry_run:
+                print(colourise("yellow", f"[DRY-RUN] Skipping Jira fetch due to missing config: {e}"))
+                orders = []
+            else:
+                raise e
         buckets = self.process_orders(orders)
         
         if self.env.get('LOG') == "DEBUG":
             print(json.dumps(buckets, indent=4))
             
-        self.update_sheet_orders(worksheet, reporting_period, buckets)
+        if dry_run:
+            print(colourise("yellow", "\n[DRY-RUN]"), f"Processed {len(orders)} orders into service buckets.")
+            print("Service Order Counts:")
+            for service, keys in buckets.items():
+                if keys:
+                    print(f" - {service}: {len(keys)}")
+        else:
+            self.update_sheet_orders(worksheet, reporting_period, buckets)
 
 if __name__ == "__main__":
     app = OrdersAccounting()

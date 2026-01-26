@@ -204,7 +204,7 @@ class UsersAccounting:
         if remaining_vos:
             print(colourise("cyan", "[INFO]"), f"Processed/Added {len(remaining_vos)} new VOs.")
 
-    def run(self):
+    def run(self, dry_run=False):
         dt = datetime.datetime.now()
         timestamp = dt.strftime("%d-%m-%Y %H:%M:%S")
         
@@ -218,21 +218,29 @@ class UsersAccounting:
             return
 
         worksheet = init_GWorkSheet(self.env, 'GOOGLE_VOS_WORKSHEET')
-        if not worksheet:
+        if not worksheet and not dry_run:
              return
 
-        self.update_headers(worksheet, accounting_period)
+        if not dry_run:
+            self.update_headers(worksheet, accounting_period)
 
         vos_stats = get_VOs_stats(self.env)
         if self.env.get('LOG') == "DEBUG":
             print(json.dumps(vos_stats, indent=4))
 
-        self.update_vos(worksheet, vos_stats, accounting_period)
-        
-        try:
-            worksheet.insert_note("A1", "Last Update on: " + timestamp)
-        except:
-            pass
+        if dry_run:
+            print(colourise("yellow", "\n[DRY-RUN]"), f"Fetching stats for {len(vos_stats)} VOs.")
+            # Sample output
+            print(f"Sample data (first 3):")
+            for vo in vos_stats[:3]:
+                print(f" - {vo['name']}: {vo['users']} users, {vo['active_members']} active, {vo['total_members']} total")
+        else:
+            self.update_vos(worksheet, vos_stats, accounting_period)
+            
+            try:
+                worksheet.insert_note("A1", "Last Update on: " + timestamp)
+            except:
+                pass
 
 
 if __name__ == "__main__":
