@@ -302,9 +302,28 @@ def validate_google_credentials(service_info):
         return False
 
 def init_google_credentials(env):
-    """Initialize Google credentials from environment"""
+    """
+    Initialize Google credentials from environment with two-mode support.
+    
+    Service Account Configuration Modes:
+    
+    1. SERVICE_ACCOUNT_JSON (GitHub Actions mode):
+       - String: Full service account JSON as environment variable
+       - Use case: GitHub Actions secrets (large JSON in one secret)
+       - Example: export SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
+    
+    2. SERVICE_ACCOUNT_FILE (Local development mode):
+       - File path: Location of service_account.json file
+       - Default: .config/service_account.json
+       - Use case: Local testing with act or pytest
+       - Example: .config/service_account.json (created from template)
+    
+    Precedence: SERVICE_ACCOUNT_JSON is checked first (GitHub Actions),
+               then falls back to SERVICE_ACCOUNT_FILE (local).
+    """
     try:
         # Try to load service account from JSON string in environment
+        # (GitHub Actions - secrets passed as JSON strings)
         if 'SERVICE_ACCOUNT_JSON' in env:
             try:
                 service_info = json.loads(env['SERVICE_ACCOUNT_JSON'])
@@ -321,6 +340,7 @@ def init_google_credentials(env):
                 return None
 
         # Fallback to file-based service account
+        # (Local development - .config/service_account.json)
         elif 'SERVICE_ACCOUNT_FILE' in env:
             try:
                 with open(env['SERVICE_ACCOUNT_FILE']) as f:
