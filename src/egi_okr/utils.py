@@ -24,6 +24,37 @@ import traceback
 # Suppress warnings
 warnings.filterwarnings("ignore")
 
+def validate_date_format(date_str, field_name='DATE'):
+    """
+    Validate date string format is YYYY/MM or YYYY-MM.
+    Returns (valid: bool, normalized: str, error: str)
+    """
+    if not date_str:
+        return False, None, f"{field_name} is empty"
+    
+    # Normalize to YYYY/MM format
+    normalized = date_str.replace("-", "/")
+    
+    # Validate format
+    parts = normalized.split("/")
+    if len(parts) != 2:
+        return False, None, f"{field_name} '{date_str}' invalid format (expected YYYY/MM or YYYY-MM)"
+    
+    try:
+        year, month = parts
+        if not (year.isdigit() and len(year) == 4):
+            return False, None, f"{field_name} year must be 4 digits, got '{year}'"
+        if not (month.isdigit() and len(month) == 2):
+            return False, None, f"{field_name} month must be 2 digits, got '{month}'"
+        
+        month_int = int(month)
+        if not (1 <= month_int <= 12):
+            return False, None, f"{field_name} month must be 01-12, got '{month}'"
+        
+        return True, normalized, None
+    except Exception as e:
+        return False, None, f"{field_name} validation error: {str(e)}"
+
 def format_reporting_period(env):
     """Safely construct the reporting period string 'YYYY.MM-MM'"""
     date_from = env.get('DATE_FROM')
@@ -43,15 +74,27 @@ def format_reporting_period(env):
         except Exception as e:
             print(colourise("yellow", "[WARN]"), f"Failed to calculate default dates: {e}")
             return "UNKNOWN_PERIOD"
-            
+    
+    # Validate DATE_FROM format
+    valid_from, norm_from, err_from = validate_date_format(date_from, 'DATE_FROM')
+    if not valid_from:
+        print(colourise("red", "[ERROR]"), err_from)
+        return "INVALID_PERIOD"
+    
+    # Validate DATE_TO format
+    valid_to, norm_to, err_to = validate_date_format(date_to, 'DATE_TO')
+    if not valid_to:
+        print(colourise("red", "[ERROR]"), err_to)
+        return "INVALID_PERIOD"
+    
     try:
-        # Expected format: YYYY/MM or YYYY-MM
-        df = date_from.replace("/", "-")
-        dt = date_to.replace("/", "-")
+        # Use normalized format (YYYY/MM)
+        parts_from = norm_from.split("/")
+        parts_to = norm_to.split("/")
         
-        year = df[0:4]
-        start_month = df[-2:]
-        end_month = dt[-2:]
+        year = parts_from[0]
+        start_month = parts_from[1]
+        end_month = parts_to[1]
         
         return f"{year}.{start_month}-{end_month}"
     except Exception as e:
@@ -113,7 +156,25 @@ def find_difference(activeVOs_1, activeVOs_2):
     return arrivingVOs_str, leavingVOs_str
 
 def get_env_settings():
-    """Reading profile settings from env"""
+    """
+    Retrieve environment configuration with three-level precedence:
+    
+    Level 1 (Hardcoded Defaults): Production-standard values for all services.
+                                   Ensures out-of-the-box functionality.
+    Level 2 (Environment Variables): Override defaults from OS environment.
+                                     Supports GitHub Actions secrets and local overrides.
+    Level 3 (Cascading Defaults): Derive values from other settings if not explicitly set.
+                                   Examples: JIRA_PROJECT cascades to projectkeys,
+                                   GOOGLE_SHEET_NAME cascades to SLAs sheet name.
+    
+    Cascading Rules:
+      - JIRA_PROJECT → SERVICE_ORDERS_PROJECTKEY, COMPLAINS_PROJECTKEY, VIOLATIONS_PROJECTKEY
+      - GOOGLE_SHEET_NAME → GOOGLE_SLAs_SHEET_NAME (if SLAs sheet is same as main sheet)
+      - Missing DATE_FROM/DATE_TO → Calculated as last month
+    
+    Returns:
+        dict: Complete configuration with all required environment variables
+    """
     d = {}
     
     # List of all known environment variables across all modules
