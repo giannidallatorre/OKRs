@@ -49,21 +49,24 @@ jobs:
               env:
                   JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
                   JIRA_PROJECT: ${{ secrets.JIRA_PROJECT || 'EGISO' }}
+                  OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
               run: |
                   python -m egi_okr.accounting_orders
 
             - name: Run Cloud CPU Accounting
-              run: |
-                  python -m egi_okr.accounting_cpus
               env:
                   ACCOUNTING_SCOPE: cloud
-
-            - name: Run HTC CPU Accounting
+                  OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
               run: |
                   python -m egi_okr.accounting_cpus
+
+            - name: Run HTC CPU Accounting
               env:
                   ACCOUNTING_SCOPE: egi
                   ACCOUNTING_METRIC: elap_processors
+                  OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+              run: |
+                  python -m egi_okr.accounting_cpus
 
             - name: Run Users Accounting
               env:
