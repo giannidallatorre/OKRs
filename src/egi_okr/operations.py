@@ -201,6 +201,9 @@ def get_VOs_stats(env):
     # Check for cached data (valid for current reporting period)
     cache_file = f".cache/vos_stats_{env.get('DATE_FROM', '')}_{env.get('DATE_TO', '')}.json"
     
+    # Ensure cache directory exists
+    cache_dir = os.path.dirname(cache_file) or ".cache"
+    
     if os.path.exists(cache_file):
         try:
             with open(cache_file, 'r') as f:
@@ -270,7 +273,7 @@ def get_VOs_stats(env):
 
     # Save to cache
     try:
-        os.makedirs(".cache", exist_ok=True)
+        os.makedirs(cache_dir, exist_ok=True)
         with open(cache_file, 'w') as f:
             json.dump(vo_details, f)
         print(colourise("green", "\n[INFO]"), f"\tCached {len(vo_details)} VOs to {cache_file}")
