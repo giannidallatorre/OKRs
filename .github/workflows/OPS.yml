@@ -48,6 +48,7 @@ jobs:
             - name: Run Service Orders Accounting
               env:
                   JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
+                  JIRA_PROJECT: ${{ secrets.JIRA_PROJECT || 'EGISO' }}
               run: |
                   python -m egi_okr.accounting_orders
 
@@ -77,14 +78,16 @@ jobs:
                   python -m egi_okr.vo_reports
 
             - name: Run Cloud SLA Accounting
+              env:
+                  OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  ACCOUNTING_SCOPE: cloud
               run: |
                   python -m egi_okr.accounting_slas
-              env:
-                  ACCOUNTING_SCOPE: cloud
 
             - name: Run HTC SLA Accounting
-              run: |
-                  python -m egi_okr.accounting_slas
               env:
+                  OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   ACCOUNTING_SCOPE: egi
                   ACCOUNTING_METRIC: elap_processors
+              run: |
+                  python -m egi_okr.accounting_slas
