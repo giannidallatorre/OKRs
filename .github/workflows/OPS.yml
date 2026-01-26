@@ -50,6 +50,7 @@ jobs:
                   JIRA_AUTH_TOKEN: ${{ secrets.JIRA_AUTH_TOKEN }}
                   JIRA_PROJECT: ${{ secrets.JIRA_PROJECT || 'EGISO' }}
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
               run: |
                   python -m egi_okr.accounting_orders
 
@@ -57,6 +58,7 @@ jobs:
               env:
                   ACCOUNTING_SCOPE: cloud
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
               run: |
                   python -m egi_okr.accounting_cpus
 
@@ -65,24 +67,28 @@ jobs:
                   ACCOUNTING_SCOPE: egi
                   ACCOUNTING_METRIC: elap_processors
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
               run: |
                   python -m egi_okr.accounting_cpus
 
             - name: Run Users Accounting
               env:
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
               run: |
                   python -m egi_okr.accounting_users
 
             - name: Run VO Reports
               env:
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
               run: |
                   python -m egi_okr.vo_reports
 
             - name: Run Cloud SLA Accounting
               env:
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
                   ACCOUNTING_SCOPE: cloud
               run: |
                   python -m egi_okr.accounting_slas
@@ -90,6 +96,7 @@ jobs:
             - name: Run HTC SLA Accounting
               env:
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
                   ACCOUNTING_SCOPE: egi
                   ACCOUNTING_METRIC: elap_processors
               run: |
