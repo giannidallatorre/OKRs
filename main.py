@@ -18,6 +18,7 @@ def main():
     parser.add_argument('task', choices=['cpus', 'users', 'orders', 'slas', 'reports'], 
                         help='The accounting task to run')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
+    parser.add_argument('--dry-run', action='store_true', help='Run in dry-run mode (no changes to Spreadsheet)')
 
     args = parser.parse_args()
 
@@ -26,23 +27,25 @@ def main():
         os.environ['LOG'] = 'DEBUG'
 
     print(f"Running task: {colourise('cyan', args.task)}")
+    if args.dry_run:
+        print(colourise("yellow", "[INFO] Dry-run mode enabled. No changes will be made to the spreadsheet."))
 
     try:
         if args.task == 'cpus':
             app = CPUAccounting()
-            app.run()
+            app.run(dry_run=args.dry_run)
         elif args.task == 'users':
             app = UsersAccounting()
-            app.run()
+            app.run(dry_run=args.dry_run)
         elif args.task == 'orders':
             app = OrdersAccounting()
-            app.run()
+            app.run(dry_run=args.dry_run)
         elif args.task == 'slas':
             app = SLAsAccounting()
-            app.main()
+            app.main(dry_run=args.dry_run)
         elif args.task == 'reports':
             app = VOsReports()
-            app.run()
+            app.run(dry_run=args.dry_run)
             
         print(colourise("green", f"\nTask '{args.task}' completed successfully."))
         
