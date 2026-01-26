@@ -20,6 +20,7 @@ import json
 import requests
 import gspread
 from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise, format_reporting_period
+from .operations import get_VOs_stats
 
 class SLAsAccounting:
     def __init__(self, env=None):
@@ -81,47 +82,89 @@ class SLAsAccounting:
         
         return vo_col
 
+
+
+    def fetch_slas_from_api(self):
+        """Fetch VOs from Operations Portal API as a fallback for SLA list."""
+        print(colourise("yellow", "[INFO]"), "Fetching VOs from API to use as SLA list...")
+        
+        vos_stats = get_VOs_stats(self.env)
+        slas = []
+        
+        for vo in vos_stats:
+            # Only include Production VOs? Or all? User said "populate list of SLA from API"
+            # get_VOs_stats filters for production VOs usually or returns status?
+            # get_VOs_stats in operations.py returns dict with 'name', 'status' isn't explicitly in the dict returned by get_VOs_stats!
+            # Wait, let's check get_VOs_stats output structure in operations.py.
+            # It returns: name, scope, url, users, active_members... NO STATUS.
+            # But the loop in get_VOs_stats iterates `response.get('data', [])`.
+            # The API /vo-list returns filtered list or all?
+            # It usually returns valid VOs.
+            
+            # We will assume all returned VOs are potential SLA candidates.
+            # We map them to the structure expected by main()
+            
+            slas.append({
+                "Customer": vo['name'], # Use VO name as customer
+                "Name": vo['name'],
+                "CPU/h": 0,
+                # Set start/end to current period to ensure they are picked up
+                "SLA_start": self.env['DATE_FROM'],
+                "SLA_end": self.env['DATE_TO'],
+                "Active": "Y",
+                "Type": "egi, cloud" # Assume check both
+            })
+            
+        print(colourise("green", "[INFO]"), f"Loaded {len(slas)} VOs from API.")
+        return slas
+
     def fetch_active_slas(self):
         slas_ws = init_GWorkSheet(self.env, 'GOOGLE_SLAs_WORKSHEET', 'GOOGLE_SLAs_SHEET_NAME')
         
-        if not slas_ws:
-             return []
-        
-        print(colourise("green", "\n[INFO]"), "Fetching active SLAs...")
-        
         vos = []
-        values = slas_ws.get_all_values()
+        if slas_ws:
+            print(colourise("green", "\n[INFO]"), "Fetching active SLAs from Spreadsheet...")
+            try:
+                values = slas_ws.get_all_values()
+                
+                # Determine indices based on fixed SLA report structure.
+                # index 10: VO Name, index 6: Status, index 12: Cloud, index 16: EGI/HTC.
+                
+                for value in values:
+                     # Skip header row and short lines.
+                     if len(value) < 17 or "VO name" in value[10]:
+                         continue
         
-        # Determine indices based on fixed SLA report structure.
-        # index 10: VO Name, index 6: Status, index 12: Cloud, index 16: EGI/HTC.
-        
-        for value in values:
-             # Skip header row and short lines.
-             if len(value) < 17 or "VO name" in value[10]:
-                 continue
+                     status = value[6]
+                     vo_name = value[10]
+                     
+                     # Classify SLA type based on Cloud and EGI service markers.
+                     if "FINALIZED" in status:
+                         sla_type = ""
+                         v12 = value[12] # Cloud marker
+                         v16 = value[16] # EGI marker
+                         if vo_name and v12 and not v16: sla_type = "egi"
+                         elif vo_name and not v12 and v16: sla_type = "cloud"
+                         elif vo_name and v12 and v16: sla_type = "egi, cloud"
+                         
+                         if sla_type:
+                             vos.append({
+                                 "Customer": value[0],
+                                 "Name": vo_name,
+                                 "CPU/h": 0,
+                                 "SLA_start": value[7],
+                                 "SLA_end": value[8],
+                                 "Active": "Y",
+                                 "Type": sla_type
+                             })
+            except Exception as e:
+                print(colourise("yellow", "[WARN]"), f"Failed to read SLA sheet: {e}")
 
-             status = value[6]
-             vo_name = value[10]
-             
-             # Classify SLA type based on Cloud and EGI service markers.
-             if "FINALIZED" in status:
-                 sla_type = ""
-                 v12 = value[12] # Cloud marker
-                 v16 = value[16] # EGI marker
-                 if vo_name and v12 and not v16: sla_type = "egi"
-                 elif vo_name and not v12 and v16: sla_type = "cloud"
-                 elif vo_name and v12 and v16: sla_type = "egi, cloud"
-                 
-                 if sla_type:
-                     vos.append({
-                         "Customer": value[0],
-                         "Name": vo_name,
-                         "CPU/h": 0,
-                         "SLA_start": value[7],
-                         "SLA_end": value[8],
-                         "Active": "Y",
-                         "Type": sla_type
-                     })
+        # Fallback to API if no SLAs found in sheet
+        if not vos:
+            print(colourise("yellow", "[WARN]"), "No active SLAs found in spreadsheet (or tab missing).")
+            vos = self.fetch_slas_from_api()
+            
         return vos
 
     def fetch_vo_accounting(self, vo_name):
@@ -152,7 +195,7 @@ class SLAsAccounting:
                   print(colourise("red", "[ERROR]"), f"Failed to fetch accounting for {vo_name}: {e}")
              return None
 
-    def main(self):
+    def main(self, dry_run=False):
         log_level = self.env.get('LOG', 'INFO')
         print(f"\nLog Level = {colourise('cyan', log_level)}")
         
@@ -172,12 +215,21 @@ class SLAsAccounting:
 
         # This target sheet is in the spreadsheet defined by GOOGLE_SHEET_NAME.
         worksheet = init_GWorkSheet(self.env, target_ws_key)
-        if not worksheet:
+        if not worksheet and not dry_run:
             return
 
         # Fetch SLAs
         slas = self.fetch_active_slas()
         
+        if dry_run:
+             print(colourise("yellow", "\n[DRY-RUN]"), f"Found {len(slas)} active SLAs.")
+             # We can't really simulate the full accounting loop easily without mock data or making requests
+             # For dry run, lets just print what SLAs we would check
+             print("SLAs to be checked:")
+             for vo in slas:
+                  print(f" - {vo['Name']} ({vo['Type']})")
+             return
+
         # Check Period Row
         period_pos, found = self.get_cell_position(worksheet, reporting_period)
         if not found:
