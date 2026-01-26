@@ -66,10 +66,12 @@ class TestVOsReports(unittest.TestCase):
         
         self.app.run()
         
-        # Expectation: update_cell called
-        mock_worksheet.update_cell.assert_called()
-        mock_worksheet.update_cell.assert_any_call(5, 2, 1) # Total
-        mock_worksheet.update_cell.assert_any_call(5, 4, 1) # Production
+        # Expectation: update_cells called (batch update instead of individual update_cell)
+        mock_worksheet.update_cells.assert_called()
+        # Verify it was called with a list of cells
+        args, kwargs = mock_worksheet.update_cells.call_args
+        cells = args[0]
+        self.assertEqual(len(cells), 4)  # 4 cells updated (total, deleted, production, vos_string)
 
 if __name__ == '__main__':
     unittest.main()

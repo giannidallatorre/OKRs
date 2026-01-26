@@ -86,11 +86,14 @@ class VOsReports:
                      break
              
              if cell:
-                 # Update
-                 worksheet.update_cell(cell.row, 2, total)
-                 worksheet.update_cell(cell.row, 3, total_deleted)
-                 worksheet.update_cell(cell.row, 4, total_production)
-                 worksheet.update_cell(cell.row, 5, vos_string)
+                 # Update using batch operation instead of 4 individual calls
+                 cells_to_update = [
+                     gspread.Cell(cell.row, 2, total),
+                     gspread.Cell(cell.row, 3, total_deleted),
+                     gspread.Cell(cell.row, 4, total_production),
+                     gspread.Cell(cell.row, 5, vos_string)
+                 ]
+                 worksheet.update_cells(cells_to_update, value_input_option='RAW')
                  print(colourise("cyan", "[INFO]"), f"Updated report for {reporting_period}")
              else:
                  # Insert
@@ -112,7 +115,7 @@ class VOsReports:
         except Exception as e:
             handle_exception(e, self.env)
 
-    def run(self):
+    def run(self, dry_run=False):
         log_level = self.env.get('LOG', 'INFO')
         print(f"\nLog Level = {colourise('cyan', log_level)}")
         
@@ -128,7 +131,7 @@ class VOsReports:
 
         # Use the configured worksheet for VO reporting.
         worksheet = init_GWorkSheet(self.env, 'GOOGLE_VOS_REPORT_WORKSHEET')
-        if not worksheet:
+        if not worksheet and not dry_run:
             return
 
         vos_report = get_VOs_report(self.env)
@@ -136,7 +139,21 @@ class VOsReports:
         if log_level == "DEBUG":
              print(colourise("green", "\n[LOG]"), f"VOs Report:\n{json.dumps(vos_report, indent=4)}")
 
-        self.update_worksheet(worksheet, reporting_period, vos_report)
+        if dry_run:
+            print(colourise("yellow", "\n[DRY-RUN]"), "VOs Report generated.")
+            print(f"Total entries: {len(vos_report)}")
+            # Summary
+            total = 0
+            prod = 0
+            deleted = 0
+            for item in vos_report:
+                count = int(item['count'])
+                total += count
+                if "Production" in item.get('status', ''): prod += count
+                if "Deleted" in item.get('status', ''): deleted += count
+            print(f"Summary: Total {total} | Production {prod} | Deleted {deleted}")
+        else:
+            self.update_worksheet(worksheet, reporting_period, vos_report)
 
 if __name__ == "__main__":
     app = VOsReports()
