@@ -17,6 +17,7 @@
 
 import requests
 import json
+import os
 from .utils import colourise, get_checkin_access_token
 
 def get_operations_headers(env):
@@ -59,7 +60,10 @@ def get_VOs_report(env):
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
-        print(colourise("red", "[ERROR]"), f"Failed to fetch VO report: {e}")
+        msg = f"{e}"
+        if hasattr(e, 'response') and e.response is not None:
+             msg += f"\nResponse: {e.response.text}"
+        print(colourise("red", "[ERROR]"), f"Failed to fetch VO report: {msg}")
         return []
 
     VOs_report = []
@@ -194,6 +198,19 @@ def get_VOs_stats(env):
     '''
        Returns the list of productions VOs with minimal information
     '''
+    # Check for cached data (valid for current reporting period)
+    cache_file = f".cache/vos_stats_{env.get('DATE_FROM', '')}_{env.get('DATE_TO', '')}.json"
+    
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                cached_data = json.load(f)
+                print(colourise("green", "\n[INFO]"), 
+                      f"\tLoaded {len(cached_data)} VOs from cache (skipping API calls)")
+                return cached_data
+        except Exception as e:
+            print(colourise("yellow", "[WARN]"), f"Failed to load cache: {e}")
+    
     headers = get_operations_headers(env)
 
     _url = f"{env['OPERATIONS_SERVER_URL']}{env['OPERATIONS_VO_LIST_PREFIX']}"
@@ -207,7 +224,10 @@ def get_VOs_stats(env):
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
-        print(colourise("red", "[ERROR]"), f"API failure fetching VOs list: {e}")
+        msg = f"{e}"
+        if hasattr(e, 'response') and e.response is not None:
+             msg += f"\nResponse: {e.response.text}"
+        print(colourise("red", "[ERROR]"), f"API failure fetching VOs list: {msg}")
         return []
 
     vo_details = []
@@ -247,6 +267,15 @@ def get_VOs_stats(env):
 
             vo_details.append(vo_detail)    
             index = index + 1 
+
+    # Save to cache
+    try:
+        os.makedirs(".cache", exist_ok=True)
+        with open(cache_file, 'w') as f:
+            json.dump(vo_details, f)
+        print(colourise("green", "\n[INFO]"), f"\tCached {len(vo_details)} VOs to {cache_file}")
+    except Exception as e:
+        print(colourise("yellow", "[WARN]"), f"Failed to save cache: {e}")
 
     return vo_details
 
