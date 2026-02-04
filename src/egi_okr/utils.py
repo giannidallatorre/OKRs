@@ -529,10 +529,14 @@ def handle_exception(e, env, worksheet=None):
 
 def get_logged_connections():
     """Return list of uniquely connected spreadsheets for summary info."""
-    global _CONNECTION_LOG
-    if '_CONNECTION_LOG' not in globals():
-        return []
-    return list(_CONNECTION_LOG.values())
+    cache = _load_process_cache()
+    return list(cache.get("connections", {}).values())
+
+def clear_connection_cache():
+    """Remove the local connection cache file (call at end of run or beginning of new run)."""
+    if os.path.exists(_CACHE_FILE):
+        try: os.remove(_CACHE_FILE)
+        except: pass
 
 def get_checkin_access_token(env):
     """Obtain an access token using a refresh token from EGI Check-in."""
