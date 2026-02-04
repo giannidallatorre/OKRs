@@ -180,7 +180,7 @@ def get_env_settings():
     # List of all known environment variables across all modules
     keys = [
         # Generic
-        'LOG', 'DATE_FROM', 'DATE_TO', 'SSL_CHECK',
+        'LOG', 'DATE_FROM', 'DATE_TO', 'SSL_CHECK', 'USER_EMAIL',
         
         # Google / Sheets
         'SERVICE_ACCOUNT_PATH', 'SERVICE_ACCOUNT_FILE', 'SERVICE_ACCOUNT_JSON', 'GOOGLE_SHEET_NAME',
@@ -420,12 +420,43 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
             print(colourise("cyan", "[INFO]"), f"Connected to Spreadsheet: '{sheet.title}'")
             print(colourise("cyan", "[INFO]"), f"URL: {sheet.url}")
         except gspread.exceptions.SpreadsheetNotFound:
-            print(colourise("red", "[ABORT]"), \
-                f"The {spreadsheet_env_var} ({sheet_name}) points to a non-existent sheet")
-            return None
+            print(colourise("yellow", "[WARN]"), \
+                f"The spreadsheet '{sheet_name}' was not found.")
+            
+            try:
+                print(colourise("cyan", "[INFO]"), f"Creating new spreadsheet: '{sheet_name}'...")
+                sheet = account.create(sheet_name)
+                print(colourise("green", "[SUCCESS]"), f"Created spreadsheet: '{sheet.title}'")
+                print(colourise("green", "[INFO]"), f"URL: {sheet.url}")
+            except Exception as e:
+                print(colourise("red", "[ABORT]"), f"Failed to create spreadsheet: {e}")
+                return None
+
+        # Check permissions and share with user if needed
+        # This runs for both existing and newly created sheets
+        user_email = env.get('USER_EMAIL')
+        if user_email:
+            try:
+                # Blindly attempt to share - gspread handles 'already exists' gracefully usually,
+                # or we catch the exception. More efficient than listing permissions which requires Owner role.
+                # Actually, Service Account IS Owner if it created it.
+                # If SA is just an editor (Production sheet), this might fail if it can't share.
+                # But for Test sheet (created by SA), it works.
+                print(colourise("cyan", "[INFO]"), f"Ensuring access for {user_email}...")
+                sheet.share(user_email, perm_type='user', role='writer')
+                print(colourise("green", "[SUCCESS]"), f"Shared with {user_email} (or already shared).")
+            except Exception as e:
+                # Don't abort if sharing fails (might be Prod sheet owned by someone else)
+                print(colourise("yellow", "[WARN]"), f"Could not share spreadsheet: {e}")
+        else:
+             if account.auth.service_account_email:
+                 print(colourise("yellow", "[INFO]"), f"Sheet owned/accessed by: {account.auth.service_account_email}")
+                print(colourise("red", "[ABORT]"), f"Failed to create spreadsheet: {e}")
+                return None
 
         # Opening the sheet validates access. If it fails, common errors are handled.
         
+        # Open the Worksheet
         # Open the Worksheet
         try:
             if worksheet_env_var not in env:
@@ -436,9 +467,19 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
             worksheet = sheet.worksheet(worksheet_name)
             return worksheet
         except gspread.exceptions.WorksheetNotFound:
-            print(colourise("red", "[ABORT]"), \
-                f"The {worksheet_env_var} setting points to a non-existent worksheet")
-            return None
+            print(colourise("yellow", "[WARN]"), \
+                f"The worksheet '{worksheet_name}' was not found.")
+            
+            try:
+                print(colourise("cyan", "[INFO]"), f"Creating new worksheet: '{worksheet_name}'...")
+                # Create worksheet with sensible default dimensions (enough columns for reports)
+                worksheet = sheet.add_worksheet(title=worksheet_name, rows=100, cols=20)
+                print(colourise("green", "[SUCCESS]"), f"Created worksheet: '{worksheet.title}'")
+                return worksheet
+                
+            except Exception as e:
+                print(colourise("red", "[ABORT]"), f"Failed to create worksheet: {e}")
+                return None
 
     except Exception as e:
         print(colourise("red", "[ABORT]"), \
