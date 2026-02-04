@@ -20,6 +20,7 @@ import logging
 import datetime
 import json
 import os
+import gspread
 from gspread.exceptions import GSpreadException
 from .utils import get_env_settings, handle_exception, init_GWorkSheet, find_difference, format_reporting_period
 
