@@ -442,11 +442,6 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                 except Exception as e:
                     # Don't abort if sharing fails (might be Prod sheet owned by someone else)
                     print(colourise("yellow", "[WARN]"), f"Could not share spreadsheet: {e}")
-        else:
-             if account.auth.service_account_email:
-                 print(colourise("yellow", "[INFO]"), f"Sheet owned/accessed by: {account.auth.service_account_email}")
-             pass
-
         # Opening the sheet validates access. If it fails, common errors are handled.
         
         # Open the Worksheet
