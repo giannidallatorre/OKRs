@@ -110,12 +110,28 @@ class SLAsAccounting(BaseAccounting):
         self.apply_standard_formatting(worksheet)
 
         # 3. Update Rows
+        all_rows = worksheet.get_all_values()
+        existing_names = [r[0] if r else "" for r in all_rows]
+        
+        remaining_vos = []
         for name, cpu in vo_data:
-            row_idx = self.get_item_row(worksheet, name, start_row=2)
-            current_val = worksheet.cell(row_idx, 1).value
-            if current_val != name:
-                worksheet.insert_row([name], index=row_idx)
-            cells_to_update.append(gspread.Cell(row_idx, period_col, cpu))
+            if name in existing_names:
+                row_idx = existing_names.index(name) + 1
+                cells_to_update.append(gspread.Cell(row_idx, period_col, cpu))
+            else:
+                remaining_vos.append((name, cpu))
+
+        if remaining_vos:
+            # Batch insert new ones
+            remaining_vos.sort(key=lambda x: x[0])
+            start_row = self.get_item_row(worksheet, remaining_vos[0][0], start_row=2, all_values=all_rows)
+            
+            print(f"\tInserting {len(remaining_vos)} new SLA entries at row {start_row}...")
+            worksheet.insert_rows([[v[0]] for v in remaining_vos], row=start_row)
+            
+            for i, (name, cpu) in enumerate(remaining_vos):
+                row = start_row + i
+                cells_to_update.append(gspread.Cell(row, period_col, cpu))
 
         if cells_to_update:
             print(f"\tUpdating {len(cells_to_update)} SLA records...")

@@ -93,22 +93,28 @@ class CPUAccounting(BaseAccounting):
             print(colourise("red", "[ABORT]"), f"Worksheet {worksheet_key} not found.")
             return
 
-        # 1. Headers & Orientation
-        labels = ["Period Metric", "CPU/h", "#VOs with accounting", "List of active VOs", "#VOs without accounting", "VOs with *NO* accounting", "VOs variations", "Follow-up actions"]
-        if not worksheet.cell(1,1).value:
-            worksheet.update('A1', [[l] for l in labels], value_input_option='RAW')
+        # 1. Setup & Orientation
+        headers = worksheet.row_values(1)
+        all_values = worksheet.get_all_values()
         
-        period_col = self.get_period_column(worksheet)
+        labels = ["Period Metric", "CPU/h", "#VOs with accounting", "List of active VOs", "#VOs without accounting", "VOs with *NO* accounting", "VOs variations", "Follow-up actions"]
+        if not headers or labels[0] not in headers[0]:
+            print(f"\tInitializing worksheet labels...")
+            worksheet.update('A1', [[l] for l in labels], value_input_option='RAW')
+            headers = [labels[0]] # Refresh headers for get_period_column
+        
+        period_col = self.get_period_column(worksheet, headers=headers)
         self.apply_standard_formatting(worksheet)
 
-        # 2. Diff Logic
+        # 2. Diff Logic (Reuse all_values)
         result = '-'
-        if period_col > 2:
-             try:
-                 prev_vos = worksheet.cell(4, period_col - 1).value
-                 new_vo, left_vo = find_difference(prev_vos, ', '.join(summary["VOs"]))
-                 result = f"APPEARED: {new_vo}\nDISAPPEARED: {left_vo}"
-             except: pass
+        if period_col > 2 and len(all_values) >= 4:
+            try:
+                # Row 4 (index 3) is "List of active VOs"
+                prev_vos = all_values[3][period_col - 2] if len(all_values[3]) >= (period_col - 1) else ""
+                new_vo, left_vo = find_difference(prev_vos, ', '.join(summary["VOs"]))
+                result = f"APPEARED: {new_vo}\nDISAPPEARED: {left_vo}"
+            except: pass
 
         # 3. Write
         col_values = [[summary["total_cpu"]], [summary["total"]], [', '.join(summary["VOs"]) or '-'], [len(summary["noVOs"])], [', '.join(summary["noVOs"]) or '-'], [result], ['-']]

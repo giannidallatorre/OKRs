@@ -19,22 +19,25 @@ class BaseAccounting:
             
         return init_GWorkSheet(self.env, worksheet_env_key)
 
-    def get_column_by_label(self, worksheet, label):
+    def get_column_by_label(self, worksheet, label, headers=None):
         """Find column index by its header label. Returns None if not found."""
-        try:
-            cell = worksheet.find(label)
-            return cell.col if cell else None
-        except:
-            return None
+        if headers is None:
+            try:
+                headers = worksheet.row_values(1)
+            except: return None
+            
+        if label in headers:
+            return headers.index(label) + 1
+        return None
 
-    def get_period_column(self, worksheet, start_col=2, static_headers=None):
+    def get_period_column(self, worksheet, start_col=2, static_headers=None, headers=None):
         """Standardized logic to find or add the reporting period column in Row 1."""
-        headers = worksheet.row_values(1)
+        if headers is None:
+            headers = worksheet.row_values(1)
         
         # 1. Existing?
-        existing_col = self.get_column_by_label(worksheet, self.accounting_period)
-        if existing_col:
-            return existing_col
+        if self.accounting_period in headers:
+            return headers.index(self.accounting_period) + 1
 
         # 2. Find insertion point
         y_pos = start_col
@@ -53,9 +56,11 @@ class BaseAccounting:
         worksheet.insert_cols([[self.accounting_period]], y_pos, value_input_option='RAW', inherit_from_before=True)
         return y_pos
 
-    def get_item_row(self, worksheet, item_name, start_row=2, first_col_index=1):
+    def get_item_row(self, worksheet, item_name, start_row=2, first_col_index=1, all_values=None):
         """Lexicographical row finding for items in Column A (or first_col_index)."""
-        all_values = worksheet.get_all_values()
+        if all_values is None:
+            all_values = worksheet.get_all_values()
+        
         row = start_row
         
         if len(all_values) >= start_row:

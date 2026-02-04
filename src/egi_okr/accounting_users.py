@@ -47,16 +47,18 @@ class UsersAccounting(BaseAccounting):
         """Update existing VOs and batch-insert new ones."""
         self.apply_standard_formatting(worksheet)
         
-        reg_users_col = self.get_column_by_label(worksheet, 'Registered Users')
-        total_users_col = self.get_column_by_label(worksheet, 'Total Users')
-
+        # 1. Fetch bulk data once
+        headers = worksheet.row_values(1)
         all_rows = worksheet.get_all_values()
         existing_names = [r[0] if r else "" for r in all_rows]
         
+        reg_users_col = self.get_column_by_label(worksheet, 'Registered Users', headers=headers)
+        total_users_col = self.get_column_by_label(worksheet, 'Total Users', headers=headers)
+
         cells_to_update = []
         remaining_vos = []
 
-        # 1. Map existing
+        # 2. Update existing
         for vo in vos_list:
             name = vo['name']
             if name in existing_names:
@@ -67,10 +69,10 @@ class UsersAccounting(BaseAccounting):
             else:
                 remaining_vos.append(vo)
 
-        # 2. Insert new
+        # 3. Batch insert new
         if remaining_vos:
             remaining_vos.sort(key=lambda x: x['name'])
-            start_row = self.get_item_row(worksheet, remaining_vos[0]['name'], start_row=3)
+            start_row = self.get_item_row(worksheet, remaining_vos[0]['name'], start_row=3, all_values=all_rows)
             
             print(f"\tInserting {len(remaining_vos)} new VOs at row {start_row}...")
             worksheet.insert_rows([[vo['name']] for vo in remaining_vos], row=start_row)
