@@ -17,12 +17,12 @@ jobs:
     update-sheet:
         runs-on: ubuntu-latest
         env:
-            # Use production sheet only for scheduled runs.
-            # Push and Manual runs use the Test spreadsheet.
-            GOOGLE_SHEET_NAME: ${{ github.event_name == 'schedule' && secrets.GOOGLE_SHEET_NAME || 'EGI_OKR_Test_Verify' }}
+            # Use secret if defined (production or local override), otherwise fallback to Test sheet
+            GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME || 'EGI_OKR_Test_Verify' }}
 
             # Common environment variables
             PYTHONPATH: src
+            # SERVICE_ACCOUNT_JSON should be a single-line JSON string
             SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
             SSL_CHECK: "False"
 
