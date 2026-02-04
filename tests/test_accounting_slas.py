@@ -56,9 +56,11 @@ class TestSLAsAccounting(unittest.TestCase):
         # 3. Mock Target Sheet (Results sheet)
         mock_target_ws.get_all_values.return_value = [['VO', '2023.10-12']]
         
-        # 4. Mock API (Bulk accounting)
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = [{'id': 'vo.test', 'Total': 100}]
+        # 4. Mock API (Individual VO fetch)
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [{'id': 'Total', 'Total': 123}]
+        mock_get.return_value = mock_resp
         
         self.app.run()
         
@@ -66,7 +68,7 @@ class TestSLAsAccounting(unittest.TestCase):
         mock_target_ws.update_cells.assert_called()
         # Verify the cell value
         cells = mock_target_ws.update_cells.call_args[0][0]
-        self.assertEqual(cells[0].value, 100)
+        self.assertEqual(cells[0].value, 123)
 
 if __name__ == '__main__':
     unittest.main()

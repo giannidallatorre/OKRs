@@ -58,7 +58,12 @@ class CPUAccounting(BaseAccounting):
         scope = self.env.get('ACCOUNTING_SCOPE', '')
 
         for record in data:
-            total_val = record.get('Total', 0)
+            _raw = record.get('Total', 0)
+            try:
+                total_val = int(float(_raw)) if _raw else 0
+            except:
+                total_val = 0
+
             if "Total" in record['id']:
                 summary["total_cpu"] = total_val
                 continue

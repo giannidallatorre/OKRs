@@ -50,8 +50,8 @@ class SLAsAccounting(BaseAccounting):
             vos = [{"Name": v['name'], "CPU/h": 0} for v in get_VOs_stats(self.env)]
         return vos
 
-    def fetch_all_accounting(self):
-        """Fetch all accounting data in a single bulk request (same as CPUAccounting)."""
+    def fetch_vo_accounting(self, vo_name):
+        """Fetch accounting for a single VO using the custom selector (ensures coverage)."""
         parts_from = self.env['DATE_FROM'].replace("-", "/").split("/")
         parts_to = self.env['DATE_TO'].replace("-", "/").split("/")
         from_yr, from_mo = parts_from[0], parts_from[1].lstrip('0')
@@ -63,7 +63,7 @@ class SLAsAccounting(BaseAccounting):
             f"{self.env['ACCOUNTING_SCOPE']}/"
             f"{self.env['ACCOUNTING_METRIC']}/"
             f"VO/DATE/{from_yr}/{from_mo}/{to_yr}/{to_mo}/"
-            f"{self.env['ACCOUNTING_VO_GROUP_SELECTOR']}/"
+            f"custom-{vo_name}/"
             f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
             f"{benchmark}/"
             f"{self.env['ACCOUNTING_DATA_SELECTOR']}/"
@@ -74,11 +74,15 @@ class SLAsAccounting(BaseAccounting):
             r = requests.get(url, verify=verify_ssl)
             r.raise_for_status()
             data = r.json()
-            # Map VO id to Total CPU
-            return {rec.get('id'): int(rec.get('Total', 0)) for rec in data if 'id' in rec and 'Total' in rec}
+            # For a single VO, find the 'Total' record or return 0
+            for record in data:
+                if "Total" in record.get('id', ''):
+                    _raw = record.get('Total', 0)
+                    try: return int(float(_raw)) if _raw else 0
+                    except: return 0
+            return 0
         except Exception as e:
-            print(f"\t[WARN] Failed bulk fetch: {e}")
-            return {}
+            return 0
 
     def run(self, dry_run=False):
         scope = self.env.get('ACCOUNTING_SCOPE', '')
@@ -93,13 +97,10 @@ class SLAsAccounting(BaseAccounting):
         cells_to_update = []
         total_cpu = 0
         
-        # 1. Fetch data once (dry-run ready)
-        all_accounts = self.fetch_all_accounting()
-        
+        # 1. Fetch data individually (Ensures accuracy for VOs outside 'egi' group)
         vo_data = []
-        total_cpu = 0
         for vo in vos:
-            cpu = all_accounts.get(vo['Name'], 0)
+            cpu = self.fetch_vo_accounting(vo['Name'])
             total_cpu += cpu
             vo_data.append((vo['Name'], cpu))
 
