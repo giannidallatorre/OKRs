@@ -390,6 +390,28 @@ def validate_spreadsheet_access(account, env):
             f"Error validating spreadsheet access: {e}")
         return False
 
+_CACHE_FILE = ".okr_conn_cache.json"
+
+def _load_process_cache():
+    """Load connection and sharing cache from local file (persists across CI steps)."""
+    import os
+    import json
+    if os.path.exists(_CACHE_FILE):
+        try:
+            with open(_CACHE_FILE, 'r') as f:
+                return json.load(f)
+        except: pass # Ignore errors, return default empty cache
+    return {"connections": {}, "shared": []}
+
+def _save_process_cache(cache):
+    """Save connection and sharing cache to local file."""
+    import os
+    import json
+    try:
+        with open(_CACHE_FILE, 'w') as f:
+            json.dump(cache, f)
+    except: pass # Ignore errors, cache is not critical
+
 def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NAME'):
     """Initialize the GWorkSheet settings and return the worksheet"""
     try:
@@ -400,6 +422,10 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
 
         # Open the GoogleSheet
         just_created = False
+        cache = _load_process_cache()
+        connections = cache.get("connections", {})
+        shared = set(cache.get("shared", []))
+
         try:
             sheet_name = env.get(spreadsheet_env_var)
             if not sheet_name:
@@ -408,12 +434,8 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
             sheet = account.open(sheet_name)
             
             # Singleton logging: only print connection info once per spreadsheet ID
-            global _CONNECTION_LOG
-            if '_CONNECTION_LOG' not in globals():
-                _CONNECTION_LOG = {}
-            
-            if sheet.id not in _CONNECTION_LOG:
-                _CONNECTION_LOG[sheet.id] = {"title": sheet.title, "url": sheet.url}
+            if sheet.id not in connections:
+                connections[sheet.id] = {"title": sheet.title, "url": sheet.url}
                 print(colourise("cyan", "[INFO]"), f"Connected to Spreadsheet: '{sheet.title}'")
                 print(colourise("cyan", "[INFO]"), f"URL: {sheet.url}")
                 
@@ -429,33 +451,33 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                 print(colourise("green", "[INFO]"), f"URL: {sheet.url}")
                 
                 # Cache connection info for summary
-                if '_CONNECTION_LOG' not in globals(): _CONNECTION_LOG = {}
-                _CONNECTION_LOG[sheet.id] = {"title": sheet.title, "url": sheet.url}
+                connections[sheet.id] = {"title": sheet.title, "url": sheet.url}
                 
             except Exception as e:
                 print(colourise("red", "[ABORT]"), f"Failed to create spreadsheet: {e}")
                 return None
 
         # Check permissions and share with user if needed
-        # Use a process-level cache to avoid repetitive sharing in the same run (e.g. backfill)
-        global _SHARED_CACHE
-        if '_SHARED_CACHE' not in globals():
-            _SHARED_CACHE = set()
-
         user_email = env.get('USER_EMAIL')
         if user_email:
-            cache_key = (sheet.id, user_email)
-            if cache_key not in _SHARED_CACHE:
+            cache_key = f"{sheet.id}:{user_email}"
+            if cache_key not in shared:
                 try:
                     # If just created, we MUST notify so the user gets the link.
                     # If it already existed, we share with notify=False to ensure access without spam.
                     print(colourise("cyan", "[INFO]"), f"Ensuring access for {user_email}...")
                     sheet.share(user_email, perm_type='user', role='writer', notify=just_created)
                     print(colourise("green", "[SUCCESS]"), f"Shared with {user_email} (notify={just_created}).")
-                    _SHARED_CACHE.add(cache_key)
+                    shared.add(cache_key)
                 except Exception as e:
                     # Don't abort if sharing fails (might be Prod sheet owned by someone else)
                     print(colourise("yellow", "[WARN]"), f"Could not share spreadsheet: {e}")
+        
+        # Save updated cache
+        cache["connections"] = connections
+        cache["shared"] = list(shared)
+        _save_process_cache(cache)
+
         # Opening the sheet validates access. If it fails, common errors are handled.
         
         # Open the Worksheet

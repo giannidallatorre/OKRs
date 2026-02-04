@@ -34,6 +34,7 @@ backfill: ## Backfill historical data (2020-2025). Usage: make backfill ARGS="--
 		exit 1; \
 	fi
 	@echo "$(GREEN)Starting historical backfill (2020-2025)...$(NC)"
+	@rm -f .okr_conn_cache.json
 	@export PYTHONPATH=src && python3 -m egi_okr.backfill $(ARGS)
 	@echo "$(GREEN)✅ Backfill completed$(NC)"
 
@@ -44,7 +45,7 @@ clean: ## Remove Python cache and build artifacts
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.pyc" -delete
 	@find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-	@rm -rf .pytest_cache .coverage htmlcov/ 2>/dev/null || true
+	@rm -rf .pytest_cache .coverage htmlcov/ .okr_conn_cache.json 2>/dev/null || true
 	@echo "$(GREEN)✅ Cleanup completed$(NC)"
 
 ##@ Help

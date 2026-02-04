@@ -2,7 +2,7 @@
 import argparse
 import datetime
 import os
-from egi_okr.utils import get_env_settings, colourise, get_logged_connections
+from egi_okr.utils import get_env_settings, colourise, get_logged_connections, clear_connection_cache
 from egi_okr.accounting_users import UsersAccounting
 from egi_okr.accounting_cpus import CPUAccounting
 from egi_okr.accounting_slas import SLAsAccounting
@@ -36,6 +36,7 @@ def load_secrets(path):
                 os.environ[key] = val
 
 def main():
+    clear_connection_cache()
     # 1. Load secrets from local file for native run
     load_secrets("act_setup/local.secrets")
     

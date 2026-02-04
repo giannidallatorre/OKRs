@@ -4,6 +4,7 @@ __pycache__/
 
 # Test artifacts and coverage
 .pytest_cache/
+.okr_conn_cache.json
 .cache/
 .coverage
 coverage.xml
