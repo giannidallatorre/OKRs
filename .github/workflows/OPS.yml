@@ -25,6 +25,7 @@ jobs:
             # SERVICE_ACCOUNT_JSON should be a single-line JSON string
             SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
             SSL_CHECK: "False"
+            PIP_ROOT_USER_ACTION: ignore
 
         steps:
             - uses: actions/checkout@v4

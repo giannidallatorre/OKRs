@@ -16,6 +16,7 @@ jobs:
             # These env vars are kept only for logging/config initialization.
             PYTHONPATH: src
             LOG: INFO
+            PIP_ROOT_USER_ACTION: ignore
 
         steps:
             - uses: actions/checkout@v4
