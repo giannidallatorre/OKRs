@@ -1,5 +1,6 @@
 
 import unittest
+import datetime
 from unittest.mock import patch, MagicMock
 from egi_okr.accounting_slas import SLAsAccounting
 
@@ -37,7 +38,7 @@ class TestSLAsAccounting(unittest.TestCase):
         self.assertEqual(len(slas), 1)
         self.assertEqual(slas[0]['Name'], "vo.test")
 
-    @patch('egi_okr.accounting_slas.requests.get')
+    @patch('requests.Session.get')
     @patch('egi_okr.base_accounting.init_GWorkSheet')
     def test_run_flow(self, mock_init, mock_get):
         # 1. Mock Sheets
@@ -56,7 +57,7 @@ class TestSLAsAccounting(unittest.TestCase):
         # 3. Mock Target Sheet (Results sheet)
         mock_target_ws.get_all_values.return_value = [['VO', '2023.10-12']]
         
-        # 4. Mock API (Individual VO fetch)
+        # 4. Mock API (Individual VO fetch via session)
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [{'id': 'Total', 'Total': 123}]

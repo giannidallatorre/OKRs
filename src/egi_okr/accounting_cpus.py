@@ -46,7 +46,7 @@ class CPUAccounting(BaseAccounting):
         
         verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
         try:
-            response = requests.get(url=_url, headers={"Accept": "application/json"}, verify=verify_ssl)
+            response = self.session.get(url=_url, headers={"Accept": "application/json"}, verify=verify_ssl, timeout=60)
             response.raise_for_status()
             return response.json()
         except Exception as e:

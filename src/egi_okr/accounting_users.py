@@ -94,7 +94,7 @@ class UsersAccounting(BaseAccounting):
         worksheet = self.init_worksheet('GOOGLE_VOS_REPORT_WORKSHEET')
         if not worksheet: return
 
-        vos_report = get_VOs_report(self.env)
+        vos_report = get_VOs_report(self.env, session=self.session)
         if dry_run:
             print(colourise("yellow", "[DRY-RUN]"), f"Fetched Created/Deleted reports for {len(vos_report)} status types.")
             return
@@ -128,7 +128,7 @@ class UsersAccounting(BaseAccounting):
         worksheet = self.init_worksheet('GOOGLE_VOS_WORKSHEET')
         
         # Always fetch stats for reporting/dry-run
-        vos_stats = get_VOs_stats(self.env)
+        vos_stats = get_VOs_stats(self.env, session=self.session)
         
         if worksheet:
             # Setup headers (Single Read)

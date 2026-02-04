@@ -18,6 +18,7 @@
 import requests
 import json
 import os
+import concurrent.futures
 from .utils import colourise, get_checkin_access_token
 
 def get_operations_headers(env):
@@ -34,12 +35,14 @@ def get_operations_headers(env):
          "X-API-Key": env.get('OPERATIONS_API_KEY', '')
     }
 
-def get_VOs_report(env):
+def get_VOs_report(env, session=None):
     '''
         Returns reports of the list of VOs created and deleted in the reporting period
         Endpoint:
          * `/egi-reports/vo`
     '''
+    # ... (skipping some comments)
+    if session is None: session = requests
 
     start = (env['DATE_FROM'].replace("/", "-")) + "-01"
     end = (env['DATE_TO'].replace("/", "-")) + "-01"
@@ -56,7 +59,7 @@ def get_VOs_report(env):
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
@@ -95,18 +98,16 @@ def get_VOs_report(env):
     return VOs_report
     
 
-def get_VO_metadata(index, env, vo_name):
+def get_VO_metadata(index, env, vo_name, session=None):
     '''
         Returns the 'acknowldegement' and the 'publicationUrl' metadata for a given VO
         Endpoint:
          * `/vo-idcard/{vo_name}/{_format}`
     '''
+    if session is None: session = requests
 
     headers = get_operations_headers(env)
-
-    publicationsURL = ""
-    statement = ""
-
+    # ...
     _url = f"{env['OPERATIONS_SERVER_URL']}{env['OPERATIONS_VO_ID_CARD_PREFIX']}/{vo_name}"
     params = {
         "format": env.get('OPERATIONS_FORMAT', 'json')
@@ -114,7 +115,7 @@ def get_VO_metadata(index, env, vo_name):
  
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
@@ -144,10 +145,11 @@ def get_VO_metadata(index, env, vo_name):
     return statement, publicationsURL, index
 
 
-def get_VO_stats(env, vo):
+def get_VO_stats(env, vo, session=None):
     '''
        Returns the statistics of the production VO with minimal information
     '''
+    if session is None: session = requests
     headers = get_operations_headers(env)
 
     _url = f"{env['OPERATIONS_SERVER_URL']}{env['OPERATIONS_VO_LIST_PREFIX']}"
@@ -157,7 +159,7 @@ def get_VO_stats(env, vo):
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
@@ -171,7 +173,7 @@ def get_VO_stats(env, vo):
     if response:
         for details in response.get('data', []):
             if vo in details['name']:
-               statement, publicationsURL, index = get_VO_metadata(index, env, details['name']) 
+               statement, publicationsURL, index = get_VO_metadata(index, env, details['name'], session=session) 
               
                members = details.get('members', "0")
                if members == "0.0": members = "0"
@@ -183,7 +185,7 @@ def get_VO_stats(env, vo):
                     {"name": details['name'],
                      "scope": details['scope'],
                      "url": details['homeUrl'],
-                     "users": get_VO_users(env, details['name']), 
+                     "users": get_VO_users(env, details['name'], session=session), 
                      "active_members": members,
                      "total_members" : membersTotal, 
                      "acknowledgement": statement,
@@ -194,7 +196,7 @@ def get_VO_stats(env, vo):
     return vo_stats
 
 
-def get_VOs_stats(env):
+def get_VOs_stats(env, session=None):
     '''
        Returns the list of productions VOs with minimal information
     '''
@@ -213,17 +215,17 @@ def get_VOs_stats(env):
                 return cached_data
         except Exception as e:
             print(colourise("yellow", "[WARN]"), f"Failed to load cache: {e}")
-    
+            
+    if session is None: session = requests
     headers = get_operations_headers(env)
 
     _url = f"{env['OPERATIONS_SERVER_URL']}{env['OPERATIONS_VO_LIST_PREFIX']}"
     params = {
         "format": env.get('OPERATIONS_FORMAT', 'json')
     }
-
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
@@ -238,38 +240,33 @@ def get_VOs_stats(env):
 
     if response:
         print(colourise("cyan", "\n[INFO]"), \
-                "\tDownloading the VOs metadata from the EGI Operations Portal in progress..")
-        print("\tThis operation may take few minutes. Please wait!\n")
-
-        for details in response.get('data', []):
-            print(colourise("green", "\n[LOG]"), \
-            "[%d] Fetching metadata for the VO [%s] in progress.." %(index, details['name']))
-
-            statement, publicationsURL, index = get_VO_metadata(index, env, details['name'])
-
+                "\tDownloading the VOs metadata from the EGI Operations Portal in progress (Parallel)..")
+        
+        def fetch_worker(index, details):
+            statement, publicationsURL, _ = get_VO_metadata(index, env, details['name'], session=session)
             members = details.get('members', "0")
             if members == "0.0": members = "0"
-            
             membersTotal = details.get('membersTotal', "0")
             if membersTotal == "0.0": membersTotal = "0"
             
-            # Helper to create vo_detail dict
-            vo_detail = {
+            return {
                   "name": details['name'],
                   "scope": details['scope'],
                   "url": details['homeUrl'],
-                  "users": get_VO_users(env, details['name']),    
+                  "users": get_VO_users(env, details['name'], session=session),    
                   "active_members": members, 
                   "total_members" : membersTotal, 
                   "acknowledgement": statement or "N/A",
                   "publicationsURL": publicationsURL or "N/A"
             }
 
-            if env.get('LOG') == "DEBUG":
-                print(json.dumps(vo_detail, indent=4))
-
-            vo_details.append(vo_detail)    
-            index = index + 1 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+            futures = [executor.submit(fetch_worker, i, d) for i, d in enumerate(response.get('data', []))]
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    vo_details.append(future.result())
+                except Exception as e:
+                    print(colourise("red", "[ERROR]"), f"Failed fetching VO: {e}")
 
     # Save to cache
     try:
@@ -283,24 +280,19 @@ def get_VOs_stats(env):
     return vo_details
 
 
-def get_VO_users(env, vo):
+def get_VO_users(env, vo, session=None):
     '''
        Returns the num. of users of the production VO in the specific period
     '''
+    if session is None: session = requests
     headers = get_operations_headers(env)
 
     _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo-users"
-    params = {
-        "start_date": env['DATE_FROM'].replace("/","-"),
-        "end_date": env['DATE_TO'].replace("/","-"),
-        "format": env.get('OPERATIONS_FORMAT', 'json'),
-        "vo": vo
-    }
-
+    # ...
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     users = "0"
     try:
-        curl = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
         if response.get('users') is not None:

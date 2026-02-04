@@ -20,8 +20,9 @@ import json
 import logging
 from .utils import colourise
 
-def get_service_orders(env):
+def get_service_orders(env, session=None):
     ''' Return the list of Service Orders from the EOSC MarketPlace '''
+    if session is None: session = requests
 
     start = (env['DATE_FROM'].replace("/", "-")) + "-01"
     end = (env['DATE_TO'].replace("/", "-")) + "-01"
@@ -40,7 +41,7 @@ def get_service_orders(env):
 
     try:
         verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-        response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        response = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         if response.status_code != 200:
             logging.error(f"[ERROR] Jira returned status {response.status_code}: {response.text}")
         response.raise_for_status()
@@ -56,8 +57,9 @@ def get_service_orders(env):
     return orders['issues']
 
 
-def get_customers_complains(env):
+def get_customers_complains(env, session=None):
     ''' Return the list of Customer Complains '''
+    if session is None: session = requests
 
     complains = []
     _issues = []
@@ -79,7 +81,7 @@ def get_customers_complains(env):
 
     try:
         verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-        response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        response = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         if response.status_code != 200:
             logging.error(f"[ERROR] Jira returned status {response.status_code}: {response.text}")
         response.raise_for_status()
@@ -97,15 +99,16 @@ def get_customers_complains(env):
                _issues.append(issue['key'])
     
     for issue_key in _issues:
-        details = get_complain_details(env, issue_key)
+        details = get_complain_details(env, issue_key, session=session)
         if details:
             complains.append(details)
 
     return complains
 
 
-def get_complain_details(env, issue_key):
+def get_complain_details(env, issue_key, session=None):
     ''' Retrieve the details for a given customer complain (issue) '''
+    if session is None: session = requests
 
     _url = env['JIRA_SERVER_URL'] + "rest/api/latest/issue/" + issue_key
 
@@ -116,7 +119,7 @@ def get_complain_details(env, issue_key):
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        response = requests.get(url=_url, headers=headers, verify=verify_ssl)
+        response = session.get(url=_url, headers=headers, verify=verify_ssl)
         issue_details = response.json()
     except Exception:
         return None
@@ -146,8 +149,9 @@ def get_complain_details(env, issue_key):
     return None
 
 
-def get_sla_violations(env):
+def get_sla_violations(env, session=None):
     ''' Retrieve the SLA violations in the reporting period ''' 
+    if session is None: session = requests
 
     violations = []
     _issues = []
@@ -168,7 +172,7 @@ def get_sla_violations(env):
 
     try:
         verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-        response = requests.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        response = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         if response.status_code != 200:
             logging.error(f"[ERROR] Jira returned status {response.status_code}: {response.text}")
         response.raise_for_status()
@@ -189,8 +193,9 @@ def get_sla_violations(env):
     return violations
 
 
-def get_sla_violation_details(env, issue_key):
+def get_sla_violation_details(env, issue_key, session=None):
     ''' Retrieve the details for a given violation (issue) '''
+    if session is None: session = requests
 
     _url = env['JIRA_SERVER_URL'] + "rest/api/latest/issue/" + issue_key
 
@@ -201,7 +206,7 @@ def get_sla_violation_details(env, issue_key):
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     try:
-        response = requests.get(url=_url, headers=headers, verify=verify_ssl)
+        response = session.get(url=_url, headers=headers, verify=verify_ssl)
         issue_details = response.json()
     except Exception:
         return None

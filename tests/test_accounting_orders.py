@@ -1,5 +1,6 @@
 
 import unittest
+import datetime
 from unittest.mock import patch, MagicMock
 from egi_okr.accounting_orders import OrdersAccounting
 
@@ -12,7 +13,8 @@ class TestOrdersAccounting(unittest.TestCase):
             'GOOGLE_SHEET_NAME': 'dummy',
             'GOOGLE_ORDERS_WORKSHEET': 'Orders',
             'JIRA_SERVER_URL': 'http://jira',
-            'JIRA_AUTH_TOKEN': 'token'
+            'JIRA_AUTH_TOKEN': 'token',
+            'SERVICE_ORDERS_PROJECTKEY': 'SO'
         }
         self.app = OrdersAccounting(self.env)
 
@@ -38,6 +40,7 @@ class TestOrdersAccounting(unittest.TestCase):
         
         # Mock headers & values for BaseAccounting positioning logic
         mock_ws.row_values.return_value = ['Service', '2023.10-12']
+        mock_ws.get_all_values.return_value = [['Service', '2023.10-12']]
         
         mock_get_orders.return_value = [{'fields': {'customfield_10711': '"service":"Cloud Compute"'}}]
         

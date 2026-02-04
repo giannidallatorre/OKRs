@@ -1,6 +1,5 @@
-
+import requests
 import datetime
-import logging
 import gspread
 from .utils import get_env_settings, handle_exception, init_GWorkSheet, format_reporting_period, colourise
 
@@ -11,6 +10,11 @@ class BaseAccounting:
         self.env = env if env is not None else get_env_settings()
         self.accounting_period = format_reporting_period(self.env)
         self.log_level = self.env.get('LOG', 'INFO')
+        
+        # Connection reuse: use provided session (for backfills) or create new one
+        self.session = self.env.get('_requests_session')
+        if not self.session:
+            self.session = requests.Session()
 
     def init_worksheet(self, worksheet_env_key):
         """Initialize and return a GWorkSheet, or None on failure."""

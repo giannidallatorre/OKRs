@@ -19,6 +19,7 @@
 import requests
 import json
 import gspread
+import concurrent.futures
 from .base_accounting import BaseAccounting
 from .utils import handle_exception, colourise
 
@@ -71,7 +72,8 @@ class SLAsAccounting(BaseAccounting):
         
         verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
         try:
-            r = requests.get(url, verify=verify_ssl)
+            # Use shared session for Keep-Alive and connection pooling
+            r = self.session.get(url, verify=verify_ssl, timeout=30)
             r.raise_for_status()
             data = r.json()
             # For a single VO, find the 'Total' record or return 0
@@ -92,17 +94,24 @@ class SLAsAccounting(BaseAccounting):
         worksheet = self.init_worksheet(ws_key)
         
         vos = self.fetch_active_slas()
-        print(f"\tProcessing {len(vos)} active SLAs...")
+        print(colourise("cyan", f"\tFetching accounting for {len(vos)} active SLAs in parallel..."))
         
         cells_to_update = []
         total_cpu = 0
         
-        # 1. Fetch data individually (Ensures accuracy for VOs outside 'egi' group)
+        # 1. Fetch data in parallel (High performance)
         vo_data = []
-        for vo in vos:
-            cpu = self.fetch_vo_accounting(vo['Name'])
-            total_cpu += cpu
-            vo_data.append((vo['Name'], cpu))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+            # Create mapping of Future -> VO name
+            future_to_vo = {executor.submit(self.fetch_vo_accounting, vo['Name']): vo['Name'] for vo in vos}
+            for future in concurrent.futures.as_completed(future_to_vo):
+                vo_name = future_to_vo[future]
+                try:
+                    cpu = future.result()
+                    total_cpu += cpu
+                    vo_data.append((vo_name, cpu))
+                except Exception as e:
+                    vo_data.append((vo_name, 0))
 
         if dry_run:
             status = "(No Worksheet)" if not worksheet else ""

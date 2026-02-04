@@ -61,7 +61,7 @@ class OrdersAccounting(BaseAccounting):
         worksheet = self.init_worksheet('GOOGLE_ORDERS_WORKSHEET')
         
         # Always fetch data
-        orders = get_service_orders(self.env)
+        orders = get_service_orders(self.env, session=self.session)
         buckets = self.process_orders(orders)
         
         if dry_run:
