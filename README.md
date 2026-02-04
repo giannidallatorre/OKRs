@@ -116,6 +116,28 @@ Go to **Settings > Secrets and variables > Actions > Variables** and add:
 - `DATE_TO`: Reporting end date (e.g., `2024/03`).
 - All other worksheet names as defined in `.env.template` if they differ from defaults.
 
+## Data Backfill (Historical Data)
+
+To populate the spreadsheet with data from previous years (e.g., 2020-2025), use the backfill utility. It processes data quarterly (4 periods per year).
+
+### Using Makefile
+```bash
+# Dry run (safe, recommended first step)
+make backfill ARGS="--start 2020 --end 2025 --dry-run"
+
+# Real run
+make backfill ARGS="--start 2020 --end 2025"
+
+# Target specific module (users, cpus-cloud, cpus-htc, slas-cloud, slas-htc, orders)
+make backfill ARGS="--start 2023 --end 2023 --module orders"
+```
+
+### Manual Usage
+```bash
+export PYTHONPATH=src
+python3 -m egi_okr.backfill --start 2020 --end 2025 --module all
+```
+
 ## Spreadsheet Configuration (Production vs Test)
 
 The system distinguishes between **Production** and **Test** environments via the `GOOGLE_SHEET_NAME` variable.
