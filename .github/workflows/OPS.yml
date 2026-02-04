@@ -82,14 +82,6 @@ jobs:
               run: |
                   python -m egi_okr.accounting_users
 
-            - name: Run VO Reports
-              env:
-                  OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
-                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
-                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
-              run: |
-                  python -m egi_okr.vo_reports
-
             - name: Run Cloud SLA Accounting
               env:
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
