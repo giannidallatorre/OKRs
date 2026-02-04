@@ -36,8 +36,13 @@ def load_secrets(path):
                 os.environ[key] = val
 
 def main():
-    # Load secrets from local file for native run
+    # 1. Load secrets from local file for native run
     load_secrets("act_setup/local.secrets")
+    
+    # 2. Set defaults before environment initialization
+    if 'SSL_CHECK' not in os.environ:
+        os.environ['SSL_CHECK'] = 'False'
+        print(colourise("yellow", "[INFO]"), "SSL_CHECK not set. Defaulting to False for historical portal access.")
     
     parser = argparse.ArgumentParser(description="Backfill OKR data for previous years")
     parser.add_argument("--start", type=int, default=2020, help="Start year (default: 2020)")
@@ -55,12 +60,6 @@ def main():
 
     # Mapping modules to classes and configurations
     modules = []
-    
-    # Default environmental overrides for backfill
-    # EGI portals often have SSL issues with older system cert stores
-    if 'SSL_CHECK' not in os.environ:
-        os.environ['SSL_CHECK'] = 'False'
-        print(colourise("yellow", "[INFO]"), "SSL_CHECK not set. Defaulting to False for historical portal access.")
 
     if args.module in ["users", "all"]:
         modules.append({"name": "Users", "class": UsersAccounting, "env_mods": {}})

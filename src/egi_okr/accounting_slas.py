@@ -26,63 +26,63 @@ class SLAsAccounting:
     def __init__(self, env=None):
         self.env = env if env is not None else get_env_settings()
 
-    def get_cell_position(self, worksheet, accounting_period, is_col=False):
-        # Find the row position for the reporting period in Column A.
-        pos = 2
+    def get_period_col_position(self, worksheet, accounting_period):
+        """Find the column position for the reporting period in Row 1."""
         try:
             cell = worksheet.find(accounting_period)
-            if cell:
-                return cell.row, True
-        except:
-            pass
-        
-        values_list = worksheet.col_values(1)
-        if len(values_list) > 1:
-            for header in values_list:
-                if "Period" not in header:
-                    if header == "":
-                        break
-                    if header < accounting_period:
-                        pos += 1
-                    else:
-                        break
-        return pos, False
-
-    def get_vo_col_position(self, worksheet, vo_name):
-        # Header is Row 1. find the column for the VO.
-        try:
-            cell = worksheet.find(vo_name)
             if cell and cell.row == 1:
                 return cell.col, True
         except:
             pass
+        
+        # Determine position lexicographically among existing periods
+        pos = 2
+        headers = worksheet.row_values(1)
+        if len(headers) > 0:
+            for i, header in enumerate(headers):
+                if i == 0: continue # Skip VO
+                if header == "" or header == "TOTAL":
+                    break
+                if header < accounting_period:
+                    pos = i + 2
+                else:
+                    pos = i + 1
+                    break
+        return pos, False
+
+    def get_vo_row_position(self, worksheet, vo_name):
+        """Find the row position for a VO in Column A."""
+        try:
+            cell = worksheet.find(vo_name)
+            if cell and cell.col == 1:
+                return cell.row, True
+        except:
+            pass
 
         pos = 2
-        values_list = worksheet.row_values(1)
-        
+        values_list = worksheet.col_values(1)
         if len(values_list) > 1:
-             for header in values_list:
-                 if "Period" not in header:
-                     if header == "":
-                         break
-                     if header < vo_name:
-                         pos += 1
-                     else:
-                         break
+             for i, header in enumerate(values_list):
+                 if i == 0: continue # Skip 'VO' header
+                 if header == "":
+                     break
+                 if header < vo_name:
+                     pos = i + 2
+                 else:
+                     pos = i + 1
+                     break
         
         return pos, False
 
-    def ensure_vo_column(self, worksheet, vo_name):
-        """Find or insert VO column."""
-        vo_col, found = self.get_vo_col_position(worksheet, vo_name)
+    def ensure_vo_row(self, worksheet, vo_name):
+        """Find or insert VO row."""
+        vo_row, found = self.get_vo_row_position(worksheet, vo_name)
         
         if not found:
-             print(colourise("green", "[INFO]"), f"Adding '{vo_name}' at column: {vo_col}")
-             worksheet.insert_cols([[vo_name]], vo_col, value_input_option='RAW', inherit_from_before=False)
+             print(colourise("green", "[INFO]"), f"Adding '{vo_name}' at row: {vo_row}")
+             worksheet.insert_row([vo_name], vo_row, value_input_option='RAW', inherit_from_before=False)
         
-        return vo_col
-
-
+        return vo_row
 
     def fetch_slas_from_api(self):
         """Fetch VOs from Operations Portal API as a fallback for SLA list."""
@@ -92,27 +92,14 @@ class SLAsAccounting:
         slas = []
         
         for vo in vos_stats:
-            # Only include Production VOs? Or all? User said "populate list of SLA from API"
-            # get_VOs_stats filters for production VOs usually or returns status?
-            # get_VOs_stats in operations.py returns dict with 'name', 'status' isn't explicitly in the dict returned by get_VOs_stats!
-            # Wait, let's check get_VOs_stats output structure in operations.py.
-            # It returns: name, scope, url, users, active_members... NO STATUS.
-            # But the loop in get_VOs_stats iterates `response.get('data', [])`.
-            # The API /vo-list returns filtered list or all?
-            # It usually returns valid VOs.
-            
-            # We will assume all returned VOs are potential SLA candidates.
-            # We map them to the structure expected by main()
-            
             slas.append({
-                "Customer": vo['name'], # Use VO name as customer
+                "Customer": vo['name'], 
                 "Name": vo['name'],
                 "CPU/h": 0,
-                # Set start/end to current period to ensure they are picked up
                 "SLA_start": self.env['DATE_FROM'],
                 "SLA_end": self.env['DATE_TO'],
                 "Active": "Y",
-                "Type": "egi, cloud" # Assume check both
+                "Type": "egi, cloud"
             })
             
         print(colourise("green", "[INFO]"), f"Loaded {len(slas)} VOs from API.")
@@ -126,27 +113,18 @@ class SLAsAccounting:
             print(colourise("green", "\n[INFO]"), "Fetching active SLAs from Spreadsheet...")
             try:
                 values = slas_ws.get_all_values()
-                
-                # Determine indices based on fixed SLA report structure.
-                # index 10: VO Name, index 6: Status, index 12: Cloud, index 16: EGI/HTC.
-                
                 for value in values:
-                     # Skip header row and short lines.
                      if len(value) < 17 or "VO name" in value[10]:
                          continue
-        
                      status = value[6]
                      vo_name = value[10]
-                     
-                     # Classify SLA type based on Cloud and EGI service markers.
                      if "FINALIZED" in status:
                          sla_type = ""
-                         v12 = value[12] # Cloud marker
-                         v16 = value[16] # EGI marker
+                         v12 = value[12]
+                         v16 = value[16]
                          if vo_name and v12 and not v16: sla_type = "egi"
                          elif vo_name and not v12 and v16: sla_type = "cloud"
                          elif vo_name and v12 and v16: sla_type = "egi, cloud"
-                         
                          if sla_type:
                              vos.append({
                                  "Customer": value[0],
@@ -160,21 +138,14 @@ class SLAsAccounting:
             except Exception as e:
                 print(colourise("yellow", "[WARN]"), f"Failed to read SLA sheet: {e}")
 
-        # Fallback to API if no SLAs found in sheet
         if not vos:
             print(colourise("yellow", "[WARN]"), "No active SLAs found in spreadsheet (or tab missing).")
             vos = self.fetch_slas_from_api()
-            
         return vos
 
     def fetch_vo_accounting(self, vo_name):
-        # EGI Accounting Portal has migrated to a new Django-based system.
-        # We use the REST-like URL structure for single VO accounting.
-        # Pattern: {SERVER}/{SCOPE}/{METRIC}/REGION/Year/{DATE_FROM}/{DATE_TO}/custom-{VO}/{LOCAL_JOBS}/{DATA_SELECTOR}/
-        
         date_from = self.env['DATE_FROM'].replace("-", "/")
         date_to = self.env['DATE_TO'].replace("-", "/")
-        
         url = (
             f"{self.env['ACCOUNTING_SERVER_URL']}/"
             f"{self.env['ACCOUNTING_SCOPE']}/"
@@ -184,7 +155,6 @@ class SLAsAccounting:
             f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
             f"{self.env['ACCOUNTING_DATA_SELECTOR']}/"
         )
-        
         verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
         try:
              response = requests.get(url, verify=verify_ssl)
@@ -206,40 +176,38 @@ class SLAsAccounting:
             print(colourise("red", "[ABORT]"), "Cannot proceed with invalid or unknown reporting period.")
             return
 
-        # Determine correct worksheet key based on scope
         scope = self.env.get('ACCOUNTING_SCOPE', '')
         if 'cloud' in scope:
             target_ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET'
         else:
             target_ws_key = 'GOOGLE_SLAs_HTC_WORKSHEET'
 
-        # This target sheet is in the spreadsheet defined by GOOGLE_SHEET_NAME.
         worksheet = init_GWorkSheet(self.env, target_ws_key)
         if not worksheet and not dry_run:
             return
 
-        # Fetch SLAs
         slas = self.fetch_active_slas()
         
         if dry_run:
              print(colourise("yellow", "\n[DRY-RUN]"), f"Found {len(slas)} active SLAs.")
-             # We can't really simulate the full accounting loop easily without mock data or making requests
-             # For dry run, lets just print what SLAs we would check
-             print("SLAs to be checked:")
-             for vo in slas:
-                  print(f" - {vo['Name']} ({vo['Type']})")
              return
 
-        # Check Period Row
-        period_pos, found = self.get_cell_position(worksheet, reporting_period)
+        # Ensure base header "VO" in A1
+        headers = worksheet.row_values(1)
+        if not headers or "VO" not in headers[0]:
+             print(colourise("cyan", "[INFO]"), "Initializing header in A1...")
+             worksheet.update('A1', [['VO']], value_input_option='RAW')
+
+        # Check Period Column
+        period_col, found = self.get_period_col_position(worksheet, reporting_period)
         if not found:
-            print(colourise("cyan", "\n[INFO]"), f"Adding period {reporting_period} at row {period_pos}")
-            worksheet.insert_row([reporting_period, 0], index=period_pos)
+            print(colourise("cyan", "\n[INFO]"), f"Adding period {reporting_period} at column {period_col}")
+            worksheet.insert_cols([[reporting_period]], col=period_col, value_input_option='RAW', inherit_from_before=True)
         else:
-            print(colourise("green", "\n[INFO]"), f"Period found at row {period_pos}")
-        # 1. Ensure all needed VO columns exist in batch
-        print(colourise("cyan", "[INFO]"), "Syncing VO columns (Batch Mode)...")
-        # Find VOs that match scope and dates
+            print(colourise("green", "\n[INFO]"), f"Period found at column {period_col}")
+        
+        # 1. Ensure all needed VO rows exist in batch
+        print(colourise("cyan", "[INFO]"), "Syncing VO rows (Batch Mode)...")
         vos_to_process = []
         for vo in slas:
             if self.env['ACCOUNTING_SCOPE'] in vo['Type'] and \
@@ -247,46 +215,34 @@ class SLAsAccounting:
                self.env['DATE_TO'] <= vo['SLA_end']:
                 vos_to_process.append(vo)
         
-        # Sort them for deterministic column layout
         vos_to_process.sort(key=lambda x: x['Name'])
         
-        headers = worksheet.row_values(1)
-        new_vos = [vo for vo in vos_to_process if vo['Name'] not in headers]
+        all_col1 = worksheet.col_values(1)
+        new_vos = [vo for vo in vos_to_process if vo['Name'] not in all_col1]
         
         if new_vos:
-            print(colourise("cyan", "[INFO]"), f"Adding {len(new_vos)} new VO columns...")
-            # For simplicity, we find the first insertion point (usually col 2 or alphabetical)
-            # Default to column 2 if it's a fresh sheet
-            start_col = 2
-            # alphabetical insertion logic:
-            # find first header > new_vos[0] or stop at 'TOTAL' or end
-            for i, header in enumerate(headers):
-                if i == 0: continue # Skip Period
-                if header == "TOTAL" or header == "":
-                    start_col = i + 1
-                    break
-                if header > new_vos[0]['Name']:
-                    start_col = i + 1
+            print(colourise("cyan", "[INFO]"), f"Adding {len(new_vos)} new VO rows...")
+            insert_row_idx = 2
+            # find first row > new_vos[0]
+            for i, val in enumerate(all_col1):
+                if i == 0: continue # Skip VO header
+                if val == "": break
+                if val > new_vos[0]['Name']:
+                    insert_row_idx = i + 1
                     break
             else:
-                start_col = len(headers) + 1
+                insert_row_idx = len(all_col1) + 1
             
-            # Prepare column data (just headers in row 1)
-            # insert_cols expects list of lists [[col1_vals], [col2_vals], ...]
-            col_data = [[vo['Name']] for vo in new_vos]
+            row_data = [[vo['Name']] for vo in new_vos]
             try:
-                worksheet.insert_cols(col_data, col=start_col, value_input_option='RAW')
-                print(colourise("green", "[SUCCESS]"), f"Inserted {len(new_vos)} columns.")
-                # Refresh headers
-                headers = worksheet.row_values(1)
+                worksheet.insert_rows(row_data, row=insert_row_idx, value_input_option='RAW')
+                print(colourise("green", "[SUCCESS]"), f"Inserted {len(new_vos)} rows.")
             except Exception as e:
-                print(colourise("red", "[ERROR]"), f"Failed to batch insert columns: {e}")
-                # continue anyway, missing columns will be handled individually later (slow but safe fallback)
+                print(colourise("red", "[ERROR]"), f"Failed to batch insert rows: {e}")
         
         total_cpu = 0
         print(colourise("green", "\n[INFO]"), "Fetching accounting records...")
         
-        # Iterate relevant VOs
         cells_to_update = []
         for vo in vos_to_process:
             data = self.fetch_vo_accounting(vo['Name'])
@@ -295,29 +251,25 @@ class SLAsAccounting:
                     if "Total" in record['id']:
                         val = record['Total']
                         total_cpu += val
-                        
-                        # Buffer update
                         print(f"- {vo['Name']}: {val}")
                         try:
-                            # Use helper to find column (index 1-based)
-                            # We already ensured it exists or will try again here
-                            vo_col, found = self.get_vo_col_position(worksheet, vo['Name'])
+                            vo_row, found = self.get_vo_row_position(worksheet, vo['Name'])
                             if found:
-                                cells_to_update.append(gspread.Cell(period_pos, vo_col, val))
+                                cells_to_update.append(gspread.Cell(vo_row, period_col, val))
                             else:
-                                # Fallback insertion if batch failed or VO appeared late
-                                vo_col = self.ensure_vo_column(worksheet, vo['Name'])
-                                cells_to_update.append(gspread.Cell(period_pos, vo_col, val))
+                                vo_row = self.ensure_vo_row(worksheet, vo['Name'])
+                                cells_to_update.append(gspread.Cell(vo_row, period_col, val))
                         except Exception as e:
                             print(f"Error buffering {vo['Name']}: {e}")
         
-        # Update Total
-        print(colourise("cyan", "\n[REPORT]"), f"Total CPU: {total_cpu}")
-        
+        # Update Total? SLAs usually don't have a sum, but our code tried one.
+        # If there is a TOTAL row, find it.
         try:
-             total_cell = worksheet.find("TOTAL")
-             if total_cell:
-                 cells_to_update.append(gspread.Cell(period_pos, total_cell.col, total_cpu))
+             total_row_idx = None
+             current_col1 = worksheet.col_values(1)
+             if "TOTAL" in current_col1:
+                 total_row_idx = current_col1.index("TOTAL") + 1
+                 cells_to_update.append(gspread.Cell(total_row_idx, period_col, total_cpu))
         except:
              pass
 

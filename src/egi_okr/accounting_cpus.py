@@ -122,12 +122,13 @@ class CPUAccounting:
         })
 
     def update_headers(self, worksheet, accounting_period):
-        """Ensure base headers exist and match user format."""
+        """Ensure Metric labels in Column A and find/add Period in Row 1."""
         scope = self.env.get('ACCOUNTING_SCOPE', '')
         cpu_header = "Cloud CPU/h" if 'cloud' in scope else "HTC CPU/h"
         
-        headers = [
-            "Period", 
+        # Consistent label set for Column A
+        labels = [
+            "Period Metric", # A1
             cpu_header, 
             "#VOs with accounting", 
             "List of active VOs", 
@@ -137,17 +138,45 @@ class CPUAccounting:
             "Follow-up actions (with VOs with no accounting)"
         ]
         
-        existing_headers = worksheet.row_values(1)
-        if not existing_headers:
-            worksheet.update('A1:H1', [headers])
-        else:
-            # Check if Period or major header matches
-            if "Period" not in existing_headers[0]:
-                worksheet.insert_cols([[h] for h in headers], 1, value_input_option='RAW')
-            else:
-                # Update header names just in case they were generic
-                worksheet.update('A1:H1', [headers])
-        return
+        # 1. Ensure Column A has the labels
+        first_col = worksheet.col_values(1)
+        if not first_col or first_col[0] != "Period Metric":
+             print(f"\tInitializing Metric labels in Column A...")
+             # Prepare vertical data
+             col_data = [[l] for l in labels]
+             worksheet.update('A1', col_data, value_input_option='RAW')
+        
+        # 2. Ensure period exists in Row 1
+        period_col, found = self.get_period_col_position(worksheet, accounting_period)
+        
+        if not found:
+            print(f"\tAdding '{accounting_period}' at column: {period_col}")
+            # Insert column for period
+            # We insert empty values or maybe just header
+            worksheet.insert_cols([[accounting_period]], period_col, value_input_option='RAW', inherit_from_before=True)
+            
+        return period_col
+
+    def get_period_col_position(self, worksheet, accounting_period):
+        """Find the column position for the reporting period in Row 1."""
+        pos = 2
+        found = False
+        headers = worksheet.row_values(1)
+        if len(headers) > 0:
+            for i, h in enumerate(headers):
+                if i == 0: continue # Skip 'Period Metric'
+                if h == accounting_period:
+                    pos = i + 1
+                    found = True
+                    break
+                if h == "" or h == "TOTAL":
+                    break
+                if h < accounting_period:
+                    pos = i + 2
+                else:
+                    pos = i + 1
+                    break
+        return pos, found
 
     def update_worksheet(self, summary):
         scope = self.env.get('ACCOUNTING_SCOPE', '')
@@ -165,94 +194,61 @@ class CPUAccounting:
         
         try:
             self.format_worksheet(worksheet)
-            self.update_headers(worksheet, accounting_period)
+            
+            # Ensure orientation and get period column
+            period_col = self.update_headers(worksheet, accounting_period)
             
             timestamp = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
             VOs_string = ', '.join([str(elem.get('VO name')) for elem in summary["VOs_complete_list"]]) if summary["VOs_complete_list"] else '-'
             NOVOs_string = ', '.join([str(item) for item in summary["noVOsCPUs"]]) if summary["noVOsCPUs"] else '-'
 
-            # Idempotent logic: find existing period column A
-            periods = worksheet.col_values(1)
-            period_row = None
-            if accounting_period in periods:
-                period_row = periods.index(accounting_period) + 1
+            # Calculate difference since previous period
+            # Previous period is the column to the left (period_col - 1)
+            result = '-'
+            if period_col > 2:
+                 try:
+                     # Get previous period VOs from row 4 (List of active VOs), previous col
+                     prev_vos = worksheet.cell(4, period_col - 1).value
+                     newVOs_str, leavingVOs_str = find_difference(prev_vos, VOs_string)
+                     result = f"APPEARED: {newVOs_str}\nDISAPPEARED: {leavingVOs_str}"
+                 except:
+                     pass
+
+            # Update the column values for the period rows 2 to 8
+            # Rows correspond to the labels list in update_headers
+            cpu_val = summary["total_cloud_cpu_hours"] if 'cloud' in scope else summary["total_htc_cpu"]
             
-            if period_row:
-                cell = worksheet.cell(period_row, 1)
-                self.update_worksheet_cells(worksheet, cell, summary, VOs_string, NOVOs_string)
-                logging.info(f"Updated the Total {'Cloud' if 'cloud' in scope else 'HTC'} CPU/h for the reporting period: {accounting_period} (row {period_row})")
-            if not period_row:
-                pos, _ = self.get_cell_position(worksheet, accounting_period)
-                logging.info(f"Adding {accounting_period} at row: {pos}")
-                
-                result = '-'
-                if pos > 2:
-                    # Get previous period VOs from column D (4)
-                    prev_vos = worksheet.cell(pos - 1, 4).value
-                # Columns: Period, CPU/h, Total VOs, VOs List, No CPU Count, No CPU List, Diff
-                body = [
-                    accounting_period,
-                    summary["total_cloud_cpu_hours"] if 'cloud' in scope else summary["total_htc_cpu"],
-                    summary["total"],
-                    VOs_string,
-                    len(summary["noVOsCPUs"]),
-                    NOVOs_string,
-                    result
-                ]
-                worksheet.insert_row(body, index=pos, inherit_from_before=True)
+            col_values = [
+                # Row 2: CPU val
+                cpu_val,
+                # Row 3: Total counted
+                summary["total"],
+                # Row 4: VOs List
+                VOs_string,
+                # Row 5: No CPU count
+                len(summary["noVOsCPUs"]),
+                # Row 6: No CPU List
+                NOVOs_string,
+                # Row 7: Diff
+                result,
+                # Row 8: Follow up
+                '-'
+            ]
+            
+            # Convert to Cell update list for batch update_cells
+            cells_to_update = []
+            for i, val in enumerate(col_values):
+                row_idx = i + 2 # Metrics start at Row 2
+                cells_to_update.append(gspread.Cell(row_idx, period_col, val))
+            
+            print(f"[INFO] Updating {accounting_period} in column {period_col}...")
+            worksheet.update_cells(cells_to_update, value_input_option='RAW')
 
             worksheet.insert_note("A1", f"Last update on: {timestamp}")
 
         except (GSpreadException, ValueError) as e:
             handle_exception(e, self.env, worksheet)
-
-    def update_worksheet_cells(self, worksheet, cell, summary, VOs_string, NOVOs_string):
-        scope = self.env.get('ACCOUNTING_SCOPE', '')
-        cpu_val = summary["total_cloud_cpu_hours"] if 'cloud' in scope else summary["total_htc_cpu"]
-        
-        result = '-'
-        if cell.row > 2:
-             # Recalculate diff
-             try:
-                 prev_vos = worksheet.cell(cell.row - 1, 4).value
-                 newVOs_str, leavingVOs_str = find_difference(prev_vos, VOs_string)
-                 result = f"APPEARED: {newVOs_str}\nDISAPPEARED: {leavingVOs_str}"
-             except:
-                 pass
-
-        # Update row values starting from col 2 (col 1 is Period)
-        row_values = [
-            cpu_val,
-            summary["total"],
-            VOs_string,
-            len(summary["noVOsCPUs"]),
-            NOVOs_string,
-            result,
-            '-' # Follow-up actions placeholder
-        ]
-        
-        # Batch update the range B:H
-        range_label = f"B{cell.row}:H{cell.row}"
-        try:
-            worksheet.update(range_label, [row_values], value_input_option='RAW')
-        except Exception as e:
-            print(f"Error updating row {cell.row}: {e}")
-
-
-    def get_cell_position(self, worksheet, accounting_period):
-        pos = 2
-        found = False
-        values_list = worksheet.col_values(1)
-        if len(values_list) > 1:
-            for header in values_list:
-                if "Period" not in header:
-                    if header == accounting_period or header == "":
-                        found = True
-                        break
-                    if header < accounting_period:
-                        pos += 1
-        return pos, found
 
     def run(self, dry_run=False):
         log_level = "DEBUG" if self.env.get('LOG') == "DEBUG" else "INFO"
