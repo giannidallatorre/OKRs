@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 #
 #  Copyright 2024 EGI Foundation
@@ -15,292 +16,111 @@
 #  limitations under the License.
 #
 
-import datetime
-import json
 import requests
+import json
 import gspread
-from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise, format_reporting_period
-from .operations import get_VOs_stats
+from .base_accounting import BaseAccounting
+from .utils import handle_exception, colourise
 
-class SLAsAccounting:
+class SLAsAccounting(BaseAccounting):
     def __init__(self, env=None):
-        self.env = env if env is not None else get_env_settings()
-
-    def get_period_col_position(self, worksheet, accounting_period):
-        """Find the column position for the reporting period in Row 1."""
-        try:
-            cell = worksheet.find(accounting_period)
-            if cell and cell.row == 1:
-                return cell.col, True
-        except:
-            pass
-        
-        # Determine position lexicographically among existing periods
-        pos = 2
-        headers = worksheet.row_values(1)
-        if len(headers) > 0:
-            for i, header in enumerate(headers):
-                if i == 0: continue # Skip VO
-                if header == "" or header == "TOTAL":
-                    break
-                if header < accounting_period:
-                    pos = i + 2
-                else:
-                    pos = i + 1
-                    break
-        return pos, False
-
-    def get_vo_row_position(self, worksheet, vo_name):
-        """Find the row position for a VO in Column A."""
-        try:
-            cell = worksheet.find(vo_name)
-            if cell and cell.col == 1:
-                return cell.row, True
-        except:
-            pass
-
-        pos = 2
-        values_list = worksheet.col_values(1)
-        if len(values_list) > 1:
-             for i, header in enumerate(values_list):
-                 if i == 0: continue # Skip 'VO' header
-                 if header == "":
-                     break
-                 if header < vo_name:
-                     pos = i + 2
-                 else:
-                     pos = i + 1
-                     break
-        
-        return pos, False
-
-    def ensure_vo_row(self, worksheet, vo_name):
-        """Find or insert VO row."""
-        vo_row, found = self.get_vo_row_position(worksheet, vo_name)
-        
-        if not found:
-             print(colourise("green", "[INFO]"), f"Adding '{vo_name}' at row: {vo_row}")
-             worksheet.insert_row([vo_name], vo_row, value_input_option='RAW', inherit_from_before=False)
-        
-        return vo_row
-
-    def fetch_slas_from_api(self):
-        """Fetch VOs from Operations Portal API as a fallback for SLA list."""
-        print(colourise("yellow", "[INFO]"), "Fetching VOs from API to use as SLA list...")
-        
-        vos_stats = get_VOs_stats(self.env)
-        slas = []
-        
-        for vo in vos_stats:
-            slas.append({
-                "Customer": vo['name'], 
-                "Name": vo['name'],
-                "CPU/h": 0,
-                "SLA_start": self.env['DATE_FROM'],
-                "SLA_end": self.env['DATE_TO'],
-                "Active": "Y",
-                "Type": "egi, cloud"
-            })
-            
-        print(colourise("green", "[INFO]"), f"Loaded {len(slas)} VOs from API.")
-        return slas
+        super().__init__(env)
 
     def fetch_active_slas(self):
-        slas_ws = init_GWorkSheet(self.env, 'GOOGLE_SLAs_WORKSHEET', 'GOOGLE_SLAs_SHEET_NAME')
-        
+        """Fetch active SLAs from Spreadsheet OR API fallback."""
         vos = []
-        if slas_ws:
-            print(colourise("green", "\n[INFO]"), "Fetching active SLAs from Spreadsheet...")
-            try:
-                values = slas_ws.get_all_values()
-                for value in values:
-                     if len(value) < 17 or "VO name" in value[10]:
-                         continue
-                     status = value[6]
-                     vo_name = value[10]
-                     if "FINALIZED" in status:
-                         sla_type = ""
-                         v12 = value[12]
-                         v16 = value[16]
-                         if vo_name and v12 and not v16: sla_type = "egi"
-                         elif vo_name and not v12 and v16: sla_type = "cloud"
-                         elif vo_name and v12 and v16: sla_type = "egi, cloud"
-                         if sla_type:
-                             vos.append({
-                                 "Customer": value[0],
-                                 "Name": vo_name,
-                                 "CPU/h": 0,
-                                 "SLA_start": value[7],
-                                 "SLA_end": value[8],
-                                 "Active": "Y",
-                                 "Type": sla_type
-                             })
-            except Exception as e:
-                print(colourise("yellow", "[WARN]"), f"Failed to read SLA sheet: {e}")
+        try:
+             mock_env = self.env.copy()
+             mock_env['GOOGLE_SHEET_NAME'] = self.env.get('GOOGLE_SLAs_SHEET_NAME', self.env.get('GOOGLE_SHEET_NAME'))
+             sla_ws = self.init_worksheet('GOOGLE_SLAs_WORKSHEET')
+             if sla_ws:
+                 values = sla_ws.get_all_values()
+                 for value in values[1:]:
+                     if len(value) > 16 and value[6] == "FINALIZED":
+                         vo_name = value[10]
+                         sla_type = "cloud" if value[16].upper() == "TRUE" else "htc"
+                         if sla_type in self.env.get('ACCOUNTING_SCOPE', ''):
+                             vos.append({"Customer": value[0], "Name": vo_name, "CPU/h": 0, "Type": sla_type})
+        except Exception as e:
+             print(colourise("yellow", "[WARN]"), f"Failed to read SLA sheet: {e}")
 
         if not vos:
-            print(colourise("yellow", "[WARN]"), "No active SLAs found in spreadsheet (or tab missing).")
-            vos = self.fetch_slas_from_api()
+            print(colourise("yellow", "[INFO]"), "Fetching VOs from API as SLA fallback...")
+            from .operations import get_VOs_stats
+            vos = [{"Name": v['name'], "CPU/h": 0} for v in get_VOs_stats(self.env)]
         return vos
 
     def fetch_vo_accounting(self, vo_name):
-        # Ensure dates are in YYYY/M format (no leading zeros for months as required by the new portal)
         parts_from = self.env['DATE_FROM'].replace("-", "/").split("/")
         parts_to = self.env['DATE_TO'].replace("-", "/").split("/")
+        from_yr, from_mo = parts_from[0], parts_from[1].lstrip('0')
+        to_yr, to_mo = parts_to[0], parts_to[1].lstrip('0')
         
-        from_year, from_month = parts_from[0], parts_from[1].lstrip('0')
-        to_year, to_month = parts_to[0], parts_to[1].lstrip('0')
-        
-        # Determine benchmark (Cloud uses hepspec06, HTC usually undefined)
-        benchmark = self.env.get('ACCOUNTING_BENCHMARK_SELECTOR', 'undefined')
-        
+        benchmark = self.env.get('ACCOUNTING_BENCHMARK_SELECTOR', 'hepspec06')
         url = (
             f"{self.env['ACCOUNTING_SERVER_URL']}/"
             f"{self.env['ACCOUNTING_SCOPE']}/"
             f"{self.env['ACCOUNTING_METRIC']}/"
-            f"REGION/Year/{from_year}/{from_month}/{to_year}/{to_month}/"
+            f"REGION/Year/{from_yr}/{from_mo}/{to_yr}/{to_mo}/"
             f"custom-{vo_name}/"
             f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
             f"{benchmark}/"
             f"{self.env['ACCOUNTING_DATA_SELECTOR']}/"
         )
+        
         verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
         try:
-             response = requests.get(url, verify=verify_ssl)
-             response.raise_for_status()
-             return response.json()
-        except Exception as e:
-             if self.env.get('LOG') == "DEBUG":
-                  print(colourise("red", "[ERROR]"), f"Failed to fetch accounting for {vo_name}: {e}")
-             return None
+            r = requests.get(url, verify=verify_ssl)
+            r.raise_for_status()
+            data = r.json()
+            return sum([int(rec.get('Total', 0)) for rec in data if 'Total' in rec])
+        except: return 0
 
-    def main(self, dry_run=False):
-        log_level = self.env.get('LOG', 'INFO')
-        print(f"\nLog Level = {colourise('cyan', log_level)}")
-        
-        reporting_period = format_reporting_period(self.env)
-        print(colourise("cyan", "\n[INFO]"), f"Reporting Period: {reporting_period}")
-
-        if reporting_period in ["UNKNOWN_PERIOD", "INVALID_PERIOD"]:
-            print(colourise("red", "[ABORT]"), "Cannot proceed with invalid or unknown reporting period.")
-            return
-
+    def run(self, dry_run=False):
         scope = self.env.get('ACCOUNTING_SCOPE', '')
-        if 'cloud' in scope:
-            target_ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET'
-        else:
-            target_ws_key = 'GOOGLE_SLAs_HTC_WORKSHEET'
-
-        worksheet = init_GWorkSheet(self.env, target_ws_key)
-        if not worksheet and not dry_run:
-            return
-
-        slas = self.fetch_active_slas()
+        print(f"\n[*] Module: SLA-{scope.upper()}")
         
-        if dry_run:
-             print(colourise("yellow", "\n[DRY-RUN]"), f"Found {len(slas)} active SLAs.")
-             return
-
-        # Ensure base header "VO" in A1
-        headers = worksheet.row_values(1)
-        if not headers or "VO" not in headers[0]:
-             print(colourise("cyan", "[INFO]"), "Initializing header in A1...")
-             worksheet.update('A1', [['VO']], value_input_option='RAW')
-
-        # Check Period Column
-        period_col, found = self.get_period_col_position(worksheet, reporting_period)
-        if not found:
-            print(colourise("cyan", "\n[INFO]"), f"Adding period {reporting_period} at column {period_col}")
-            worksheet.insert_cols([[reporting_period]], col=period_col, value_input_option='RAW', inherit_from_before=True)
-        else:
-            print(colourise("green", "\n[INFO]"), f"Period found at column {period_col}")
+        ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET' if 'cloud' in scope else 'GOOGLE_SLAs_HTC_WORKSHEET'
+        worksheet = self.init_worksheet(ws_key)
         
-        # 1. Ensure all needed VO rows exist in batch
-        print(colourise("cyan", "[INFO]"), "Syncing VO rows (Batch Mode)...")
-        vos_to_process = []
-        for vo in slas:
-            if self.env['ACCOUNTING_SCOPE'] in vo['Type'] and \
-               self.env['DATE_FROM'] >= vo['SLA_start'] and \
-               self.env['DATE_TO'] <= vo['SLA_end']:
-                vos_to_process.append(vo)
-        
-        vos_to_process.sort(key=lambda x: x['Name'])
-        
-        all_col1 = worksheet.col_values(1)
-        new_vos = [vo for vo in vos_to_process if vo['Name'] not in all_col1]
-        
-        if new_vos:
-            print(colourise("cyan", "[INFO]"), f"Adding {len(new_vos)} new VO rows...")
-            insert_row_idx = 2
-            # find first row > new_vos[0]
-            for i, val in enumerate(all_col1):
-                if i == 0: continue # Skip VO header
-                if val == "": break
-                if val > new_vos[0]['Name']:
-                    insert_row_idx = i + 1
-                    break
-            else:
-                insert_row_idx = len(all_col1) + 1
-            
-            row_data = [[vo['Name']] for vo in new_vos]
-            try:
-                worksheet.insert_rows(row_data, row=insert_row_idx, value_input_option='RAW')
-                print(colourise("green", "[SUCCESS]"), f"Inserted {len(new_vos)} rows.")
-            except Exception as e:
-                print(colourise("red", "[ERROR]"), f"Failed to batch insert rows: {e}")
-        
-        total_cpu = 0
-        print(colourise("green", "\n[INFO]"), "Fetching accounting records...")
+        vos = self.fetch_active_slas()
+        print(f"\tProcessing {len(vos)} active SLAs...")
         
         cells_to_update = []
-        for vo in vos_to_process:
-            data = self.fetch_vo_accounting(vo['Name'])
-            if data:
-                for record in data:
-                    if "Total" in record['id']:
-                        val = record['Total']
-                        total_cpu += val
-                        print(f"- {vo['Name']}: {val}")
-                        try:
-                            vo_row, found = self.get_vo_row_position(worksheet, vo['Name'])
-                            if found:
-                                cells_to_update.append(gspread.Cell(vo_row, period_col, val))
-                            else:
-                                vo_row = self.ensure_vo_row(worksheet, vo['Name'])
-                                cells_to_update.append(gspread.Cell(vo_row, period_col, val))
-                        except Exception as e:
-                            print(f"Error buffering {vo['Name']}: {e}")
+        total_cpu = 0
         
-        # Update Total? SLAs usually don't have a sum, but our code tried one.
-        # If there is a TOTAL row, find it.
-        try:
-             total_row_idx = None
-             current_col1 = worksheet.col_values(1)
-             if "TOTAL" in current_col1:
-                 total_row_idx = current_col1.index("TOTAL") + 1
-                 cells_to_update.append(gspread.Cell(total_row_idx, period_col, total_cpu))
-                 print(f"[INFO] Buffered TOTAL update: {total_cpu}")
-        except:
-             pass
+        # 1. Fetch data for all (dry-run ready)
+        vo_data = []
+        for vo in vos:
+            cpu = self.fetch_vo_accounting(vo['Name'])
+            total_cpu += cpu
+            vo_data.append((vo['Name'], cpu))
 
-        # Perform batch update
+        if dry_run:
+            status = "(No Worksheet)" if not worksheet else ""
+            print(f"\tSummary: {total_cpu} CPU/h across {len(vos)} SLAs {status}")
+            return
+            
+        if not worksheet:
+            print(colourise("red", "[ABORT]"), f"Worksheet {ws_key} not found.")
+            return
+
+        # 2. Setup Sheet
+        period_col = self.get_period_column(worksheet)
+        self.apply_standard_formatting(worksheet)
+
+        # 3. Update Rows
+        for name, cpu in vo_data:
+            row_idx = self.get_item_row(worksheet, name, start_row=2)
+            current_val = worksheet.cell(row_idx, 1).value
+            if current_val != name:
+                worksheet.insert_row([name], index=row_idx)
+            cells_to_update.append(gspread.Cell(row_idx, period_col, cpu))
+
         if cells_to_update:
-            print(colourise("cyan", "[INFO]"), f"Performing batch update of {len(cells_to_update)} cells (Period: {reporting_period}, Column: {period_col})...")
-            try:
-                # Truncate some logs if too many
-                if len(cells_to_update) > 10:
-                    print(f"[DEBUG] First 5 cells: {[(c.row, c.col, c.value) for c in cells_to_update[:5]]}")
-                
-                worksheet.update_cells(cells_to_update, value_input_option='RAW')
-                print(colourise("green", "[SUCCESS]"), f"Successfully wrote {len(cells_to_update)} cells.")
-            except Exception as e:
-                print(colourise("red", "[ERROR]"), f"Failed batch update: {e}")
-
-        try:
-            worksheet.insert_note("A1", f"Last update: {datetime.datetime.now()}")
-        except:
-            pass
+            print(f"\tUpdating {len(cells_to_update)} SLA records...")
+            worksheet.update_cells(cells_to_update, value_input_option='RAW')
+            self.update_timestamp(worksheet)
 
 if __name__ == "__main__":
-    app = SLAsAccounting()
-    app.main()
+    SLAsAccounting().run()

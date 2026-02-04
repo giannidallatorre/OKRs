@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 #
 #  Copyright 2024 EGI Foundation
@@ -15,31 +16,18 @@
 #  limitations under the License.
 #
 
-import datetime
 import json
-import time
-import requests
-import warnings
 import gspread
-from gspread.exceptions import GSpreadException
-from .utils import get_env_settings, handle_exception, init_GWorkSheet, colourise, format_reporting_period
-from .operations import get_VOs_stats
+from .base_accounting import BaseAccounting
+from .utils import colourise, handle_exception
+from .operations import get_VOs_stats, get_VOs_report
 
-class UsersAccounting:
+class UsersAccounting(BaseAccounting):
     def __init__(self, env=None):
-        self.env = env if env is not None else get_env_settings()
+        super().__init__(env)
 
-    def get_column_by_label(self, worksheet, label):
-        """Find column index by its header label. Returns None if not found."""
-        try:
-            cell = worksheet.find(label)
-            return cell.col if cell else None
-        except:
-            return None
-
-    def update_headers(self, worksheet, accounting_period):
-        """Ensure all required columns exist and are correctly positioned."""
-        # 1. Ensure base columns exist
+    def update_headers(self, worksheet):
+        """Standardize headers for the Users sheet."""
         headers = worksheet.row_values(1)
         if not headers:
             headers = ["VO", "Registered Users", "Total Users"]
@@ -47,237 +35,111 @@ class UsersAccounting:
         else:
             if "VO" not in headers:
                 worksheet.insert_cols([["VO"]], 1, value_input_option='RAW')
-                headers = worksheet.row_values(1)
-            
             if "Registered Users" not in headers:
-                # Find last "static" column or insert at end
                 worksheet.insert_cols([["Registered Users"]], len(headers) + 1, value_input_option='RAW')
-                headers = worksheet.row_values(1)
-
             if "Total Users" not in headers:
                 worksheet.insert_cols([["Total Users"]], len(headers) + 1, value_input_option='RAW')
-                headers = worksheet.row_values(1)
 
-        # 2. Ensure period column exists
-        existing_col = self.get_column_by_label(worksheet, accounting_period)
-        if existing_col:
-            print(f"\tThe header '{accounting_period}' is *already* in the Worksheet (column {existing_col})")
-            return existing_col
+        # Find period column position (between VO and User counts)
+        return self.get_period_column(worksheet, start_col=2, static_headers=["Registered Users", "Total Users"])
 
-        # Find where to insert period (between base columns and user columns)
-        # We want: [VO] [Period1] [Period2] ... [Registered Users] [Total Users]
-        reg_col = self.get_column_by_label(worksheet, "Registered Users")
-        y_pos = reg_col # Insert before Registered Users
+    def process_vos(self, worksheet, vos_list, period_col):
+        """Update existing VOs and batch-insert new ones."""
+        self.apply_standard_formatting(worksheet)
         
-        # Sort among existing periods
-        current_headers = worksheet.row_values(1)
-        for i, header in enumerate(current_headers):
-            if i == 0: continue # Skip VO
-            if header == "Registered Users": break
-            if header < accounting_period:
-                y_pos = i + 2 # Keep searching
-            else:
-                y_pos = i + 1
-                break
+        reg_users_col = self.get_column_by_label(worksheet, 'Registered Users')
+        total_users_col = self.get_column_by_label(worksheet, 'Total Users')
 
-        print(f"Adding '{accounting_period}' at column: {y_pos}")
-        worksheet.insert_cols(
-            [[accounting_period]], 
-            y_pos, 
-            value_input_option='RAW', 
-            inherit_from_before=True
-        )
-        return y_pos
-
-    def get_vo_position(self, worksheet, vo_name):
-        """Find the lexicographical row position for a new VO."""
-        all_values = worksheet.get_all_values()
-        row = 3 # Starting row for data
-        if len(all_values) > 2:
-            # First row is headers, Second row is usually TOTAL/Timestamp or similar
-            # Data usually starts from row 3
-            for values in all_values[2:]: # Check from row 3
-                vo_in_row = values[0] if values else ""
-                if "TOTAL" not in vo_in_row.upper():
-                    if vo_in_row < vo_name:
-                        row += 1
-                    else:
-                        break
-        return row
-
-    def update_vos(self, worksheet, vos_list, accounting_period):
-        # Format headers
-        worksheet.format("A1:B1", {
-            "backgroundColor": {"red": 55.0, "green": 15.0, "blue": 10.0},
-            "horizontalAlignment": "LEFT",
-            "textFormat": {"fontSize": 11, "bold": True}
-        })
-        worksheet.format("A2:Z300", { # Expanded range
-            "horizontalAlignment": "RIGHT",
-            "textFormat": {"fontSize": 10}
-        })
-
-        print(colourise("cyan", "\n[INFO]"), "\tUpdating statistics of existing VOs..")
-
-        
-        def safe_find_col(label):
-            try:
-                cell = worksheet.find(label)
-                return cell.col if cell else None
-            except:
-                return None
-        
-        period_col = safe_find_col(accounting_period)
-        reg_users_col = safe_find_col('Registered Users')
-        total_users_col = safe_find_col('Total Users')
-
-        if not period_col or not reg_users_col or not total_users_col:
-             # This should not happen now with updated update_headers, but just in case
-             print(colourise("red", "[ERROR]"), f"Missing required columns in worksheet after header update. P:{period_col} R:{reg_users_col} T:{total_users_col}")
-             return
-
-        # Get all VO names in column 1 to avoid repeated findall
         all_rows = worksheet.get_all_values()
-        all_col1_values = [r[0] if r else "" for r in all_rows]
+        existing_names = [r[0] if r else "" for r in all_rows]
         
         cells_to_update = []
-        
-        # 1. Update existing VOs
         remaining_vos = []
+
+        # 1. Map existing
         for vo in vos_list:
-            vo_name = vo['name']
-            
-            # Find row index (1-based)
-            try:
-                row_index = None
-                if vo_name in all_col1_values:
-                    # find index of first occurrence
-                    row_index = all_col1_values.index(vo_name) + 1
-                
-                if not row_index:
-                     remaining_vos.append(vo)
-                     continue
-                
-                # Buffer updates
-                cells_to_update.append(gspread.Cell(row_index, period_col, vo['users']))
-                cells_to_update.append(gspread.Cell(row_index, reg_users_col, vo['active_members']))
-                cells_to_update.append(gspread.Cell(row_index, total_users_col, vo['total_members']))
-                
-                if self.env.get('LOG') == "DEBUG":
-                     print(colourise("green", "[LOG]"), f"Buffered update for {vo_name}")
+            name = vo['name']
+            if name in existing_names:
+                row_idx = existing_names.index(name) + 1
+                cells_to_update.append(gspread.Cell(row_idx, period_col, vo['users']))
+                cells_to_update.append(gspread.Cell(row_idx, reg_users_col, vo['active_members']))
+                cells_to_update.append(gspread.Cell(row_idx, total_users_col, vo['total_members']))
+            else:
+                remaining_vos.append(vo)
 
-            except Exception as e:
-                print(colourise("red", "[ERROR]"), f"Error preparing update for {vo_name}: {e}")
-
-        # 2. Insert new VOs
+        # 2. Insert new
         if remaining_vos:
-            print(colourise("cyan", "\n[INFO]"), f"\tInserting {len(remaining_vos)} new VOs (Batch Mode)..")
-            
-            # Sort remaining VOs alphabetically to ensure correct order
             remaining_vos.sort(key=lambda x: x['name'])
+            start_row = self.get_item_row(worksheet, remaining_vos[0]['name'], start_row=3)
             
-            # In a fresh spreadsheet (or empty of VOs), we can insert all at row 3.
-            # Even in a populated one, we can try to batch them if they go to the same place.
-            # For simplicity and to solve the immediate "New Sheet" issue (Quota Error), 
-            # we will assume we can insert them as a block if the sheet effectively ends or starts blank.
-            # BUT to be safe and lexicographically correct in all cases, let's just insert them all 
-            # at the position of the first one?
-            # If we have VOs [A, C] in sheet, and we insert [B1, B2], they both go to row 4 (after A).
-            # So yes, we can batch contiguous groups.
+            print(f"\tInserting {len(remaining_vos)} new VOs at row {start_row}...")
+            worksheet.insert_rows([[vo['name']] for vo in remaining_vos], row=start_row)
             
-            # However, for the specific user case (Quota Exceeded), it's creating a NEW sheet.
-            # So all VOs are new. row_index will be 3 for ALL of them (since sheet is empty).
-            
-            # Strategy: 
-            # 1. Determine the insert index for the FIRST new VO.
-            # 2. Collect all VOs that *can* be inserted at that same index (lexicographically contiguous).
-            #    Actually, if we insert a block [B1, B2] at index 4, B1 becomes row 4, B2 becomes row 5.
-            #    This preserves order.
-            # 3. So we just need to find the right start index.
-            
-            if remaining_vos:
-                # Determine start row for the whole batch
-                # Ideally, we should check if they can be formatted as a single block.
-                # If the sheet is empty (just headers), insert at row 3.
-                first_vo_name = remaining_vos[0]['name']
-                insert_row_idx = self.get_vo_position(worksheet, first_vo_name)
-                
-                print(f"Batch inserting {len(remaining_vos)} VOs starting at row {insert_row_idx}...")
-                
-                # Prepare rows: just the name in the first column, other columns empty
-                # We need to respect the table width ideally, or just insert keys.
-                # insert_rows(values, row=1, value_input_option='RAW')
-                # values is list of lists.
-                
-                body = [[vo['name']] for vo in remaining_vos]
-                
-                try:
-                    worksheet.insert_rows(body, row=insert_row_idx, value_input_option='RAW')
-                    
-                    # Now update the cells_to_update list with the new positions
-                    # Since we inserted them, we know their exact rows now.
-                    for i, vo in enumerate(remaining_vos):
-                        current_row = insert_row_idx + i
-                        cells_to_update.append(gspread.Cell(current_row, period_col, vo['users']))
-                        cells_to_update.append(gspread.Cell(current_row, reg_users_col, vo['active_members']))
-                        cells_to_update.append(gspread.Cell(current_row, total_users_col, vo['total_members']))
-                        
-                except Exception as e:
-                    print(colourise("red", "[ERROR]"), f"Batch insertion failed: {e}")
-                    # Fallback? No, just fail to avoid partial bad state.
-                    # Usually Quota Exceeded happens on LOOP, not single huge call.
+            for i, vo in enumerate(remaining_vos):
+                row = start_row + i
+                cells_to_update.append(gspread.Cell(row, period_col, vo['users']))
+                cells_to_update.append(gspread.Cell(row, reg_users_col, vo['active_members']))
+                cells_to_update.append(gspread.Cell(row, total_users_col, vo['total_members']))
 
-        # 3. Perform batch update
         if cells_to_update:
-            print(colourise("cyan", "[INFO]"), f"Performing batch update of {len(cells_to_update)} cells...")
-            try:
-                # Group updates to stay under quota if possible, though update_cells is already a batch
-                worksheet.update_cells(cells_to_update, value_input_option='RAW')
-            except Exception as e:
-                print(colourise("red", "[ERROR]"), f"Failed batch update: {e}")
+            print(f"\tPerforming batch update of {len(cells_to_update)} cells...")
+            worksheet.update_cells(cells_to_update, value_input_option='RAW')
 
-        if remaining_vos:
-            print(colourise("cyan", "[INFO]"), f"Processed/Added {len(remaining_vos)} new VOs.")
+    def run_vo_reports_logic(self, dry_run=False):
+        """Unified logic from legacy vo_reports.py - Created/Deleted VO counts."""
+        worksheet = self.init_worksheet('GOOGLE_VOS_REPORT_WORKSHEET')
+        if not worksheet: return
 
-    def run(self, dry_run=False):
-        dt = datetime.datetime.now()
-        timestamp = dt.strftime("%d-%m-%Y %H:%M:%S")
-        
-        print(f"\nLog Level = {colourise('cyan', self.env.get('LOG', 'INFO'))}")
-        
-        accounting_period = format_reporting_period(self.env)
-        print(colourise("cyan", "\n[INFO]"), f"\tReporting Period: '{accounting_period}'")
-
-        if accounting_period in ["UNKNOWN_PERIOD", "INVALID_PERIOD"]:
-            print(colourise("red", "[ABORT]"), "Cannot proceed with invalid or unknown reporting period.")
+        vos_report = get_VOs_report(self.env)
+        if dry_run:
+            print(colourise("yellow", "[DRY-RUN]"), f"Fetched Created/Deleted reports for {len(vos_report)} status types.")
             return
 
-        worksheet = init_GWorkSheet(self.env, 'GOOGLE_VOS_WORKSHEET')
-        if not worksheet and not dry_run:
-             return
+        # Legacy logic: row-based period reports (A=Period, B=Total, C=Deleted, D=Prod, E=VO List)
+        total = sum([int(i['count']) for i in vos_report])
+        total_deleted = sum([int(i['count']) for i in vos_report if "Deleted" in i.get('status', '')])
+        total_prod = sum([int(i['count']) for i in vos_report if "Production" in i.get('status', '')])
+        vos_string = ', '.join([str(e['vos']) for e in vos_report]) if vos_report else '-'
 
-        if not dry_run:
-            self.update_headers(worksheet, accounting_period)
-
-        vos_stats = get_VOs_stats(self.env)
-        if self.env.get('LOG') == "DEBUG":
-            print(json.dumps(vos_stats, indent=4))
-
-        if dry_run:
-            print(colourise("yellow", "\n[DRY-RUN]"), f"Fetching stats for {len(vos_stats)} VOs.")
-            # Sample output
-            print(f"Sample data (first 3):")
-            for vo in vos_stats[:3]:
-                print(f" - {vo['name']}: {vo['users']} users, {vo['active_members']} active, {vo['total_members']} total")
+        # Find or Insert Period Row
+        found = worksheet.findall(self.accounting_period)
+        cell = next((c for c in found if c.col == 1), None)
+        
+        if cell:
+            worksheet.update_cells([
+                gspread.Cell(cell.row, 2, total),
+                gspread.Cell(cell.row, 3, total_deleted),
+                gspread.Cell(cell.row, 4, total_prod),
+                gspread.Cell(cell.row, 5, vos_string)
+            ], value_input_option='RAW')
         else:
-            self.update_vos(worksheet, vos_stats, accounting_period)
-            
-            try:
-                worksheet.insert_note("A1", "Last Update on: " + timestamp)
-            except:
-                pass
+            row_idx = self.get_item_row(worksheet, self.accounting_period, first_col_index=1)
+            worksheet.insert_row([self.accounting_period, total, total_deleted, total_prod, vos_string], index=row_idx)
 
+    def run(self, dry_run=False):
+        print(f"\n[*] Module: Users (Standardized)")
+        
+        # 1. Main VO stats (VOs sheet)
+        worksheet = self.init_worksheet('GOOGLE_VOS_WORKSHEET')
+        
+        # Always fetch stats for reporting/dry-run
+        vos_stats = get_VOs_stats(self.env)
+        
+        if worksheet:
+            period_col = self.update_headers(worksheet)
+            if dry_run:
+                print(colourise("yellow", "[DRY-RUN]"), f"Fetched stats for {len(vos_stats)} VOs.")
+            else:
+                self.process_vos(worksheet, vos_stats, period_col)
+                self.update_timestamp(worksheet)
+        else:
+            if dry_run:
+                print(colourise("yellow", "[DRY-RUN]"), f"Fetched stats for {len(vos_stats)} VOs (No Worksheet).")
+            else:
+                print(colourise("red", "[ABORT]"), "VOs Worksheet not found. Skipping main stats.")
+
+        # 2. Unified Report Logic (Report sheet - legacy vo_reports.py)
+        self.run_vo_reports_logic(dry_run)
 
 if __name__ == "__main__":
-    app = UsersAccounting()
-    app.run()
+    UsersAccounting().run()

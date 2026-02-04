@@ -121,24 +121,8 @@ def colourise(colour, text):
         return "\033[1;37m" + str(text) + "\033[1;m"
     return str(text)
 
-def highlight(colour, text):
-    """Highlight - highlights text in shell."""
-    if colour == "black":
-        return "\033[1;40m" + str(text) + "\033[1;m"
-    if colour == "red":
-        return "\033[1;41m" + str(text) + "\033[1;m"
-    if colour == "green":
-        return "\033[1;42m" + str(text) + "\033[1;m"
-    if colour == "yellow":
-        return "\033[1;43m" + str(text) + "\033[1;m"
-    if colour == "blue":
-        return "\033[1;44m" + str(text) + "\033[1;m"
-    if colour == "magenta":
-        return "\033[1;45m" + str(text) + "\033[1;m"
-    if colour == "cyan":
-        return "\033[1;46m" + str(text) + "\033[1;m"
     if colour == "gray":
-        return "\033[1;47m" + str(text) + "\033[1;m"
+        return "\033[1;37m" + str(text) + "\033[1;m"
     return str(text)
 
 def find_difference(activeVOs_1, activeVOs_2):

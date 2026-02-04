@@ -94,13 +94,9 @@ def main():
             current_env.update(mod['env_mods'])
             
             try:
+                # All modules now inherit from BaseAccounting and have a run() method.
                 app = mod['class'](env=current_env)
-                # Check if class uses main() or run()
-                run_func = getattr(app, 'run', None) or getattr(app, 'main', None)
-                if run_func:
-                    run_func(dry_run=args.dry_run)
-                else:
-                    print(colourise("red", "[ERROR]"), f"No run/main function found for {mod['name']}")
+                app.run(dry_run=args.dry_run)
             except Exception as e:
                 print(colourise("red", "[ERROR]"), f"Failed {mod['name']} for {period['from']}: {e}")
 
