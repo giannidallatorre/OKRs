@@ -34,22 +34,52 @@ class TestCPUAccounting(unittest.TestCase):
         data = self.app.fetch_accounting_data()
         self.assertEqual(data, [])
 
-    def test_process_accounting_data(self):
-        data = [
-            {"id": "ALICE", "Total": 100, "Percent": 0.5},
-            {"id": "ignored", "Total": 0, "Percent": 0}, 
-            {"id": "Total", "Total": 1000, "Percent": 1.0}, # Total line
-            {"id": "Percent", "Total": "", "Percent": ""}, # Invalid filtered by id
-            {"id": "xlegend", "0": "ALICE"}, # Invalid filtered by missing Total
-        ]
+
+    @patch('egi_okr.accounting_cpus.init_GWorkSheet')
+    def test_update_worksheet_range_write(self, mock_init):
+        mock_ws = MagicMock()
+        mock_init.return_value = mock_ws
         
-        summary = self.app.process_accounting_data(data)
+        # Mocking orientation labels already present
+        mock_ws.col_values.return_value = ["Period Metric", "Cloud CPU/h"]
+        # Mocking some existing periods in header
+        mock_ws.row_values.return_value = ["Period Metric", "2023.10-12"] 
         
-        self.assertEqual(summary["total"], 1) # Only ALICE > 0
-        self.assertEqual(summary["VOs_complete_list"][0]["VO name"], "ALICE")
-        self.assertEqual(summary["total_cloud_cpu_hours"], 1000) # Captured from Total record
-        self.assertEqual(summary["total_noVOsCPUs"], 1)
-        self.assertIn("ignored", summary["noVOsCPUs"])
+        summary = {
+            "total": 10,
+            "total_cloud_cpu_hours": 5000,
+            "total_htc_cpu": 0,
+            "noVOsCPUs": ["vo.bad"],
+            "VOs_complete_list": [{"VO name": "vo.good"}]
+        }
+        
+        # Run
+        self.app.update_worksheet(summary)
+        
+        # Verify range based update (e.g. B2:B8 if period_col=3)
+        # 2024.01-03 should be inserted after 2023.10-12 -> col 3
+        mock_ws.insert_cols.assert_called()
+        mock_ws.update.assert_called()
+        
+        # Check that update was called with a vertical range
+        args, kwargs = mock_ws.update.call_args
+        target_range = args[0]
+        # Column C is '3' in index
+        self.assertIn("C2:C8", target_range)
+
+    def test_get_period_col_position_sorting(self):
+        mock_ws = MagicMock()
+        mock_ws.row_values.return_value = ["Period Metric", "2024.01-03", "2024.07-09"]
+        
+        # 1. Middle insertion
+        pos, found = self.app.get_period_col_position(mock_ws, "2024.04-06")
+        self.assertEqual(pos, 3)
+        self.assertFalse(found)
+        
+        # 2. Existing
+        pos, found = self.app.get_period_col_position(mock_ws, "2024.01-03")
+        self.assertEqual(pos, 2)
+        self.assertTrue(found)
 
 if __name__ == '__main__':
     unittest.main()

@@ -234,7 +234,7 @@ class CPUAccounting:
             ]
             
             # Determine range (e.g., B2:B8)
-            col_letter = gspread.utils.lexicographical_index_to_letter(period_col)
+            col_letter = gspread.utils.rowcol_to_a1(1, period_col)[:-1]
             row_range = f"{col_letter}2:{col_letter}8"
             
             print(f"[INFO] Writing data to {row_range} ({accounting_period}). Values: {cpu_val}, {summary['total']} VOs")
