@@ -59,6 +59,8 @@ jobs:
             - name: Run Cloud CPU Accounting
               env:
                   ACCOUNTING_SCOPE: cloud
+                  ACCOUNTING_METRIC: sum_elap_processors
+                  ACCOUNTING_BENCHMARK_SELECTOR: hepspec06
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
                   USER_EMAIL: ${{ secrets.USER_EMAIL }}
@@ -69,6 +71,7 @@ jobs:
               env:
                   ACCOUNTING_SCOPE: egi
                   ACCOUNTING_METRIC: elap_processors
+                  ACCOUNTING_BENCHMARK_SELECTOR: undefined
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
                   USER_EMAIL: ${{ secrets.USER_EMAIL }}
@@ -88,6 +91,8 @@ jobs:
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
                   ACCOUNTING_SCOPE: cloud
+                  ACCOUNTING_METRIC: sum_elap_processors
+                  ACCOUNTING_BENCHMARK_SELECTOR: hepspec06
                   USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_slas
@@ -98,6 +103,7 @@ jobs:
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
                   ACCOUNTING_SCOPE: egi
                   ACCOUNTING_METRIC: elap_processors
+                  ACCOUNTING_BENCHMARK_SELECTOR: undefined
                   USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_slas

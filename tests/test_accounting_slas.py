@@ -16,7 +16,8 @@ class TestSLAsAccounting(unittest.TestCase):
             'ACCOUNTING_METRIC': 'metric',
             'ACCOUNTING_LOCAL_JOB_SELECTOR': 'local',
             'ACCOUNTING_DATA_SELECTOR': 'data',
-            'ACCOUNTING_BENCHMARK_SELECTOR': 'hepspec06'
+            'ACCOUNTING_BENCHMARK_SELECTOR': 'hepspec06',
+            'ACCOUNTING_VO_GROUP_SELECTOR': 'egi'
         }
         self.app = SLAsAccounting(self.env)
 
@@ -42,30 +43,30 @@ class TestSLAsAccounting(unittest.TestCase):
         # 1. Mock Sheets
         mock_target_ws = MagicMock()
         mock_sla_source_ws = MagicMock()
-        
-        # run() calls init_worksheet(target) -> then fetch_active_slas calls init_worksheet(SLA)
         mock_init.side_effect = [mock_target_ws, mock_sla_source_ws]
         
-        # 2. Mock Source Data
+        # 2. Mock Source Data (SLA sheet)
         row = [''] * 20
+        row[0] = "Customer X"
         row[6] = "FINALIZED"
         row[10] = "vo.test"
         row[16] = "TRUE"
         mock_sla_source_ws.get_all_values.return_value = [['H']*20, row]
         
-        # 3. Mock Target Sheet logic
-        mock_target_ws.row_values.return_value = ['VO', '2023.10-12']
-        mock_target_ws.get_all_values.return_value = [['VO', '2023.10-12'], ['vo.test', '0']]
-        mock_target_ws.cell.return_value.value = 'vo.test'
+        # 3. Mock Target Sheet (Results sheet)
+        mock_target_ws.get_all_values.return_value = [['VO', '2023.10-12']]
         
-        # 4. Mock API
+        # 4. Mock API (Bulk accounting)
         mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = [{'id': 'Total', 'Total': 100}]
+        mock_get.return_value.json.return_value = [{'id': 'vo.test', 'Total': 100}]
         
         self.app.run()
         
-        # Verify
+        # Verify batch update
         mock_target_ws.update_cells.assert_called()
+        # Verify the cell value
+        cells = mock_target_ws.update_cells.call_args[0][0]
+        self.assertEqual(cells[0].value, 100)
 
 if __name__ == '__main__':
     unittest.main()
