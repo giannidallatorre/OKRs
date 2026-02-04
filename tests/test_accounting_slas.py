@@ -17,6 +17,7 @@ class TestSLAsAccounting(unittest.TestCase):
             'ACCOUNTING_SERVER_URL': 'http://acc',
             'ACCOUNTING_METRIC': 'metric',
             'ACCOUNTING_LOCAL_JOB_SELECTOR': 'local',
+            'ACCOUNTING_BENCHMARK_SELECTOR': 'hepspec06',
             'ACCOUNTING_DATA_SELECTOR': 'data'
         }
         self.app = SLAsAccounting(self.env)

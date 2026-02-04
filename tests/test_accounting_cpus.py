@@ -14,6 +14,7 @@ class TestCPUAccounting(unittest.TestCase):
             'DATE_TO': '2024/03',
             'ACCOUNTING_VO_GROUP_SELECTOR': 'egi',
             'ACCOUNTING_LOCAL_JOB_SELECTOR': 'onlyinfrajobs',
+            'ACCOUNTING_BENCHMARK_SELECTOR': 'hepspec06',
             'ACCOUNTING_DATA_SELECTOR': 'JSON',
             'LOG': 'DEBUG'
         }
