@@ -115,6 +115,20 @@ Go to **Settings > Secrets and variables > Actions > Variables** and add:
 - `DATE_TO`: Reporting end date (e.g., `2024/03`).
 - All other worksheet names as defined in `.env.template` if they differ from defaults.
 
+## Spreadsheet Configuration (Production vs Test)
+
+The system distinguishes between **Production** and **Test** environments via the `GOOGLE_SHEET_NAME` variable.
+
+### Production Environment
+*   **Trigger**: Scheduled Cron Job (Automatic)
+*   **Variable**: Uses `secrets.GOOGLE_SHEET_NAME` defined in GitHub Secrets.
+*   **Behavior**: Updates the official OKR reporting spreadsheet.
+
+### Test Environment
+*   **Trigger**: Push events, Pull Requests, Manual Dispatch, or Local Testing (`act`).
+*   **Variable**: Defaults to `'EGI_OKR_Test_Verify'`.
+*   **Behavior**: Updates the test spreadsheet to prevent accidental corruption of production data.
+
 ## References
 
 * [gspread APIs documentation](https://docs.gspread.org/en/v5.10.0/)
