@@ -203,25 +203,35 @@ class OrdersAccounting:
         
         # 2. Insert New
         if remaining_services:
-            print(colourise("cyan", "\n[INFO]"), "Adding new services...")
-            for service_name in remaining_services:
-                so_list = buckets[service_name]
-                try:
-                    row_index = self.get_service_position(worksheet, service_name)
-                    print(f"Insert {service_name} at row {row_index}")
-                    worksheet.insert_row([service_name], index=row_index)
-                    
-                    cells_to_update.append(gspread.Cell(row_index, period_col, len(so_list)))
+            print(colourise("cyan", "\n[INFO]"), f"Adding {len(remaining_services)} new services (Batch Mode)...")
+            # Sort for deterministic layout
+            remaining_services.sort()
+            
+            # Determine start row for the batch
+            # If sheet is empty (just headers), insert at row 2.
+            start_row = self.get_service_position(worksheet, remaining_services[0])
+            
+            body = [[s] for s in remaining_services]
+            try:
+                worksheet.insert_rows(body, row=start_row, value_input_option='RAW')
+                print(colourise("green", "[SUCCESS]"), f"Inserted {len(remaining_services)} services.")
+                
+                # Now buffer cell updates and notes for the new rows
+                for i, service_name in enumerate(remaining_services):
+                    current_row = start_row + i
+                    so_list = buckets[service_name]
                     so_string = ', '.join(so_list)
+                    
+                    cells_to_update.append(gspread.Cell(current_row, period_col, len(so_list)))
                     try:
                         worksheet.insert_note(
-                            gspread.utils.rowcol_to_a1(row_index, period_col),
+                            gspread.utils.rowcol_to_a1(current_row, period_col),
                             so_string
                         )
                     except:
                         pass
-                except Exception as e:
-                    print(colourise("red", "[ERROR]"), f"Failed to insert {service_name}: {e}")
+            except Exception as e:
+                print(colourise("red", "[ERROR]"), f"Batch insertion failed: {e}")
 
         # 3. Perform batch update
         if cells_to_update:

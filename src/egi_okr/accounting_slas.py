@@ -237,35 +237,79 @@ class SLAsAccounting:
             worksheet.insert_row([reporting_period, 0], index=period_pos)
         else:
             print(colourise("green", "\n[INFO]"), f"Period found at row {period_pos}")
-             
-        total_cpu = 0
-        
-        print(colourise("green", "\n[INFO]"), "Fetching accounting records...")
-        
-        # Iterate SLAs
-        cells_to_update = []
+        # 1. Ensure all needed VO columns exist in batch
+        print(colourise("cyan", "[INFO]"), "Syncing VO columns (Batch Mode)...")
+        # Find VOs that match scope and dates
+        vos_to_process = []
         for vo in slas:
-            # Check if the reporting period is within the SLA start and end dates.
-            # Note: Assumes compatible date string formats.
-             
             if self.env['ACCOUNTING_SCOPE'] in vo['Type'] and \
                self.env['DATE_FROM'] >= vo['SLA_start'] and \
                self.env['DATE_TO'] <= vo['SLA_end']:
-                
-                data = self.fetch_vo_accounting(vo['Name'])
-                if data:
-                    for record in data:
-                        if "Total" in record['id']:
-                            val = record['Total']
-                            total_cpu += val
-                              
-                            # Buffer update
-                            print(f"- {vo['Name']}: {val}")
-                            try:
+                vos_to_process.append(vo)
+        
+        # Sort them for deterministic column layout
+        vos_to_process.sort(key=lambda x: x['Name'])
+        
+        headers = worksheet.row_values(1)
+        new_vos = [vo for vo in vos_to_process if vo['Name'] not in headers]
+        
+        if new_vos:
+            print(colourise("cyan", "[INFO]"), f"Adding {len(new_vos)} new VO columns...")
+            # For simplicity, we find the first insertion point (usually col 2 or alphabetical)
+            # Default to column 2 if it's a fresh sheet
+            start_col = 2
+            # alphabetical insertion logic:
+            # find first header > new_vos[0] or stop at 'TOTAL' or end
+            for i, header in enumerate(headers):
+                if i == 0: continue # Skip Period
+                if header == "TOTAL" or header == "":
+                    start_col = i + 1
+                    break
+                if header > new_vos[0]['Name']:
+                    start_col = i + 1
+                    break
+            else:
+                start_col = len(headers) + 1
+            
+            # Prepare column data (just headers in row 1)
+            # insert_cols expects list of lists [[col1_vals], [col2_vals], ...]
+            col_data = [[vo['Name']] for vo in new_vos]
+            try:
+                worksheet.insert_cols(col_data, col=start_col, value_input_option='RAW')
+                print(colourise("green", "[SUCCESS]"), f"Inserted {len(new_vos)} columns.")
+                # Refresh headers
+                headers = worksheet.row_values(1)
+            except Exception as e:
+                print(colourise("red", "[ERROR]"), f"Failed to batch insert columns: {e}")
+                # continue anyway, missing columns will be handled individually later (slow but safe fallback)
+        
+        total_cpu = 0
+        print(colourise("green", "\n[INFO]"), "Fetching accounting records...")
+        
+        # Iterate relevant VOs
+        cells_to_update = []
+        for vo in vos_to_process:
+            data = self.fetch_vo_accounting(vo['Name'])
+            if data:
+                for record in data:
+                    if "Total" in record['id']:
+                        val = record['Total']
+                        total_cpu += val
+                        
+                        # Buffer update
+                        print(f"- {vo['Name']}: {val}")
+                        try:
+                            # Use helper to find column (index 1-based)
+                            # We already ensured it exists or will try again here
+                            vo_col, found = self.get_vo_col_position(worksheet, vo['Name'])
+                            if found:
+                                cells_to_update.append(gspread.Cell(period_pos, vo_col, val))
+                            else:
+                                # Fallback insertion if batch failed or VO appeared late
                                 vo_col = self.ensure_vo_column(worksheet, vo['Name'])
                                 cells_to_update.append(gspread.Cell(period_pos, vo_col, val))
-                            except Exception as e:
-                                print(f"Error buffering {vo['Name']}: {e}")
+                        except Exception as e:
+                            print(f"Error buffering {vo['Name']}: {e}")
         
         # Update Total
         print(colourise("cyan", "\n[REPORT]"), f"Total CPU: {total_cpu}")
