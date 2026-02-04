@@ -37,17 +37,22 @@ class CPUAccounting:
         # We use the REST-like URL structure which redirects to the correct portal service.
         # Pattern: {SERVER}/{SCOPE}/{METRIC}/VO/DATE/{DATE_FROM}/{DATE_TO}/{VO_GROUP}/{LOCAL_JOBS}/{DATA_SELECTOR}/
         
-        # Ensure dates are in YYYY/MM format (they should be, but let's be safe)
-        date_from = self.env['DATE_FROM'].replace("-", "/")
-        date_to = self.env['DATE_TO'].replace("-", "/")
+        # Ensure dates are in YYYY/M format (no leading zeros for months as required by the new portal)
+        parts_from = self.env['DATE_FROM'].replace("-", "/").split("/")
+        parts_to = self.env['DATE_TO'].replace("-", "/").split("/")
+        
+        # Strip leading zeros
+        from_year, from_month = parts_from[0], parts_from[1].lstrip('0')
+        to_year, to_month = parts_to[0], parts_to[1].lstrip('0')
         
         _url = (
             f"{self.env['ACCOUNTING_SERVER_URL']}/"
             f"{self.env['ACCOUNTING_SCOPE']}/"
             f"{self.env['ACCOUNTING_METRIC']}/"
-            f"VO/DATE/{date_from}/{date_to}/"
+            f"VO/DATE/{from_year}/{from_month}/{to_year}/{to_month}/"
             f"{self.env['ACCOUNTING_VO_GROUP_SELECTOR']}/"
             f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
+            f"{self.env['ACCOUNTING_BENCHMARK_SELECTOR']}/"
             f"{self.env['ACCOUNTING_DATA_SELECTOR']}/"
         )
 

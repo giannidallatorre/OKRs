@@ -65,16 +65,16 @@ def main():
         modules.append({"name": "Users", "class": UsersAccounting, "env_mods": {}})
     
     if args.module in ["cpus-cloud", "all"]:
-        modules.append({"name": "CPU-Cloud", "class": CPUAccounting, "env_mods": {"ACCOUNTING_SCOPE": "cloud", "ACCOUNTING_METRIC": "sum_elap_processors"}})
+        modules.append({"name": "CPU-Cloud", "class": CPUAccounting, "env_mods": {"ACCOUNTING_SCOPE": "cloud", "ACCOUNTING_METRIC": "sum_elap_processors", "ACCOUNTING_BENCHMARK_SELECTOR": "hepspec06"}})
     
     if args.module in ["cpus-htc", "all"]:
-        modules.append({"name": "CPU-HTC", "class": CPUAccounting, "env_mods": {"ACCOUNTING_SCOPE": "egi", "ACCOUNTING_METRIC": "elap_processors"}})
+        modules.append({"name": "CPU-HTC", "class": CPUAccounting, "env_mods": {"ACCOUNTING_SCOPE": "egi", "ACCOUNTING_METRIC": "elap_processors", "ACCOUNTING_BENCHMARK_SELECTOR": "undefined"}})
 
     if args.module in ["slas-cloud", "all"]:
-        modules.append({"name": "SLA-Cloud", "class": SLAsAccounting, "env_mods": {"ACCOUNTING_SCOPE": "cloud", "ACCOUNTING_METRIC": "sum_elap_processors"}})
+        modules.append({"name": "SLA-Cloud", "class": SLAsAccounting, "env_mods": {"ACCOUNTING_SCOPE": "cloud", "ACCOUNTING_METRIC": "sum_elap_processors", "ACCOUNTING_BENCHMARK_SELECTOR": "hepspec06"}})
     
     if args.module in ["slas-htc", "all"]:
-        modules.append({"name": "SLA-HTC", "class": SLAsAccounting, "env_mods": {"ACCOUNTING_SCOPE": "egi", "ACCOUNTING_METRIC": "elap_processors"}})
+        modules.append({"name": "SLA-HTC", "class": SLAsAccounting, "env_mods": {"ACCOUNTING_SCOPE": "egi", "ACCOUNTING_METRIC": "elap_processors", "ACCOUNTING_BENCHMARK_SELECTOR": "undefined"}})
 
     if args.module in ["orders", "all"]:
         modules.append({"name": "Orders", "class": OrdersAccounting, "env_mods": {}})

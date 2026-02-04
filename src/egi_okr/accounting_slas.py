@@ -144,15 +144,24 @@ class SLAsAccounting:
         return vos
 
     def fetch_vo_accounting(self, vo_name):
-        date_from = self.env['DATE_FROM'].replace("-", "/")
-        date_to = self.env['DATE_TO'].replace("-", "/")
+        # Ensure dates are in YYYY/M format (no leading zeros for months as required by the new portal)
+        parts_from = self.env['DATE_FROM'].replace("-", "/").split("/")
+        parts_to = self.env['DATE_TO'].replace("-", "/").split("/")
+        
+        from_year, from_month = parts_from[0], parts_from[1].lstrip('0')
+        to_year, to_month = parts_to[0], parts_to[1].lstrip('0')
+        
+        # Determine benchmark (Cloud uses hepspec06, HTC usually undefined)
+        benchmark = self.env.get('ACCOUNTING_BENCHMARK_SELECTOR', 'undefined')
+        
         url = (
             f"{self.env['ACCOUNTING_SERVER_URL']}/"
             f"{self.env['ACCOUNTING_SCOPE']}/"
             f"{self.env['ACCOUNTING_METRIC']}/"
-            f"REGION/Year/{date_from}/{date_to}/"
+            f"REGION/Year/{from_year}/{from_month}/{to_year}/{to_month}/"
             f"custom-{vo_name}/"
             f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
+            f"{benchmark}/"
             f"{self.env['ACCOUNTING_DATA_SELECTOR']}/"
         )
         verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
