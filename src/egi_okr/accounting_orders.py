@@ -56,11 +56,11 @@ class OrdersAccounting(BaseAccounting):
             elif 'check-in' in name: buckets["Check-in"] += 1
             elif 'training infrastructure' in name: buckets["Training Infrastructure"] += 1
         return buckets
-
     def run(self, dry_run=False):
         print(f"\n[*] Module: Orders (Standardized)")
         worksheet = self.init_worksheet('GOOGLE_ORDERS_WORKSHEET')
         
+        # Always fetch data
         orders = get_service_orders(self.env)
         buckets = self.process_orders(orders)
         
@@ -73,7 +73,11 @@ class OrdersAccounting(BaseAccounting):
             print(colourise("red", "[ABORT]"), "Orders Worksheet not found.")
             return
 
-        period_col = self.get_period_column(worksheet)
+        # Setup Orientation (Single Read)
+        all_values = worksheet.get_all_values()
+        headers = all_values[0] if all_values else []
+        
+        period_col = self.get_period_column(worksheet, headers=headers)
         self.apply_standard_formatting(worksheet)
         
         cells = []

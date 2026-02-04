@@ -406,8 +406,17 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                  print(colourise("red", "[ABORT]"), f"{spreadsheet_env_var} environment variable not set")
                  return None
             sheet = account.open(sheet_name)
-            print(colourise("cyan", "[INFO]"), f"Connected to Spreadsheet: '{sheet.title}'")
-            print(colourise("cyan", "[INFO]"), f"URL: {sheet.url}")
+            
+            # Singleton logging: only print connection info once per spreadsheet ID
+            global _CONNECTION_LOG
+            if '_CONNECTION_LOG' not in globals():
+                _CONNECTION_LOG = {}
+            
+            if sheet.id not in _CONNECTION_LOG:
+                _CONNECTION_LOG[sheet.id] = {"title": sheet.title, "url": sheet.url}
+                print(colourise("cyan", "[INFO]"), f"Connected to Spreadsheet: '{sheet.title}'")
+                print(colourise("cyan", "[INFO]"), f"URL: {sheet.url}")
+                
         except gspread.exceptions.SpreadsheetNotFound:
             print(colourise("yellow", "[WARN]"), \
                 f"The spreadsheet '{sheet_name}' was not found.")
@@ -418,6 +427,11 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                 just_created = True
                 print(colourise("green", "[SUCCESS]"), f"Created spreadsheet: '{sheet.title}'")
                 print(colourise("green", "[INFO]"), f"URL: {sheet.url}")
+                
+                # Cache connection info for summary
+                if '_CONNECTION_LOG' not in globals(): _CONNECTION_LOG = {}
+                _CONNECTION_LOG[sheet.id] = {"title": sheet.title, "url": sheet.url}
+                
             except Exception as e:
                 print(colourise("red", "[ABORT]"), f"Failed to create spreadsheet: {e}")
                 return None
@@ -490,6 +504,13 @@ def handle_exception(e, env, worksheet=None):
     if logging.getLogger().level == logging.DEBUG:
         logging.debug("\n[DEBUG] Traceback:")
         logging.debug(traceback.format_exc())
+
+def get_logged_connections():
+    """Return list of uniquely connected spreadsheets for summary info."""
+    global _CONNECTION_LOG
+    if '_CONNECTION_LOG' not in globals():
+        return []
+    return list(_CONNECTION_LOG.values())
 
 def get_checkin_access_token(env):
     """Obtain an access token using a refresh token from EGI Check-in."""

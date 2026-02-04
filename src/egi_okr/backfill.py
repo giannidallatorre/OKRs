@@ -2,7 +2,7 @@
 import argparse
 import datetime
 import os
-from egi_okr.utils import get_env_settings, colourise
+from egi_okr.utils import get_env_settings, colourise, get_logged_connections
 from egi_okr.accounting_users import UsersAccounting
 from egi_okr.accounting_cpus import CPUAccounting
 from egi_okr.accounting_slas import SLAsAccounting
@@ -99,6 +99,14 @@ def main():
                 app.run(dry_run=args.dry_run)
             except Exception as e:
                 print(colourise("red", "[ERROR]"), f"Failed {mod['name']} for {period['from']}: {e}")
+
+    # Summary of connections
+    connections = get_logged_connections()
+    if connections:
+        print(colourise("cyan", "\n[SUMMARY] Spreadsheets Updated:"))
+        for conn in connections:
+            print(colourise("cyan", "[INFO]"), f"Sheet: '{conn['title']}'")
+            print(colourise("cyan", "[INFO]"), f"URL: {conn['url']}")
 
     print(colourise("cyan", "\n[BACKFILL-FINISHED]"))
 

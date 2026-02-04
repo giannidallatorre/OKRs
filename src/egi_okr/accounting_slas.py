@@ -105,14 +105,15 @@ class SLAsAccounting(BaseAccounting):
             print(colourise("red", "[ABORT]"), f"Worksheet {ws_key} not found.")
             return
 
-        # 2. Setup Sheet
-        period_col = self.get_period_column(worksheet)
+        # 2. Setup Sheet (Single Read)
+        all_rows = worksheet.get_all_values()
+        headers = all_rows[0] if all_rows else []
+        existing_names = [r[0] if r else "" for r in all_rows]
+
+        period_col = self.get_period_column(worksheet, headers=headers)
         self.apply_standard_formatting(worksheet)
 
         # 3. Update Rows
-        all_rows = worksheet.get_all_values()
-        existing_names = [r[0] if r else "" for r in all_rows]
-        
         remaining_vos = []
         for name, cpu in vo_data:
             if name in existing_names:

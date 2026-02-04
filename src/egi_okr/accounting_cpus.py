@@ -93,15 +93,16 @@ class CPUAccounting(BaseAccounting):
             print(colourise("red", "[ABORT]"), f"Worksheet {worksheet_key} not found.")
             return
 
-        # 1. Setup & Orientation
-        headers = worksheet.row_values(1)
+        # 1. Setup & Orientation (Single Read)
         all_values = worksheet.get_all_values()
+        headers = all_values[0] if all_values else []
         
         labels = ["Period Metric", "CPU/h", "#VOs with accounting", "List of active VOs", "#VOs without accounting", "VOs with *NO* accounting", "VOs variations", "Follow-up actions"]
         if not headers or labels[0] not in headers[0]:
             print(f"\tInitializing worksheet labels...")
             worksheet.update('A1', [[l] for l in labels], value_input_option='RAW')
-            headers = [labels[0]] # Refresh headers for get_period_column
+            # If we just wrote A1:A8, headers is still [labels[0]] in effect for row 1
+            headers = [labels[0]]
         
         period_col = self.get_period_column(worksheet, headers=headers)
         self.apply_standard_formatting(worksheet)

@@ -26,9 +26,11 @@ class UsersAccounting(BaseAccounting):
     def __init__(self, env=None):
         super().__init__(env)
 
-    def update_headers(self, worksheet):
+    def update_headers(self, worksheet, headers=None):
         """Standardize headers for the Users sheet."""
-        headers = worksheet.row_values(1)
+        if headers is None:
+            headers = worksheet.row_values(1)
+            
         if not headers:
             headers = ["VO", "Registered Users", "Total Users"]
             worksheet.update('A1:C1', [headers])
@@ -41,15 +43,15 @@ class UsersAccounting(BaseAccounting):
                 worksheet.insert_cols([["Total Users"]], len(headers) + 1, value_input_option='RAW')
 
         # Find period column position (between VO and User counts)
-        return self.get_period_column(worksheet, start_col=2, static_headers=["Registered Users", "Total Users"])
+        return self.get_period_column(worksheet, start_col=2, static_headers=["Registered Users", "Total Users"], headers=headers)
 
     def process_vos(self, worksheet, vos_list, period_col):
         """Update existing VOs and batch-insert new ones."""
         self.apply_standard_formatting(worksheet)
         
         # 1. Fetch bulk data once
-        headers = worksheet.row_values(1)
         all_rows = worksheet.get_all_values()
+        headers = all_rows[0] if all_rows else []
         existing_names = [r[0] if r else "" for r in all_rows]
         
         reg_users_col = self.get_column_by_label(worksheet, 'Registered Users', headers=headers)
@@ -103,19 +105,20 @@ class UsersAccounting(BaseAccounting):
         total_prod = sum([int(i['count']) for i in vos_report if "Production" in i.get('status', '')])
         vos_string = ', '.join([str(e['vos']) for e in vos_report]) if vos_report else '-'
 
-        # Find or Insert Period Row
-        found = worksheet.findall(self.accounting_period)
-        cell = next((c for c in found if c.col == 1), None)
+        # Setup Sheet (Single Read)
+        all_rows = worksheet.get_all_values()
+        existing_periods = [r[0] if r else "" for r in all_rows]
         
-        if cell:
+        if self.accounting_period in existing_periods:
+            row_idx = existing_periods.index(self.accounting_period) + 1
             worksheet.update_cells([
-                gspread.Cell(cell.row, 2, total),
-                gspread.Cell(cell.row, 3, total_deleted),
-                gspread.Cell(cell.row, 4, total_prod),
-                gspread.Cell(cell.row, 5, vos_string)
+                gspread.Cell(row_idx, 2, total),
+                gspread.Cell(row_idx, 3, total_deleted),
+                gspread.Cell(row_idx, 4, total_prod),
+                gspread.Cell(row_idx, 5, vos_string)
             ], value_input_option='RAW')
         else:
-            row_idx = self.get_item_row(worksheet, self.accounting_period, first_col_index=1)
+            row_idx = self.get_item_row(worksheet, self.accounting_period, first_col_index=1, all_values=all_rows)
             worksheet.insert_row([self.accounting_period, total, total_deleted, total_prod, vos_string], index=row_idx)
 
     def run(self, dry_run=False):
@@ -128,7 +131,10 @@ class UsersAccounting(BaseAccounting):
         vos_stats = get_VOs_stats(self.env)
         
         if worksheet:
-            period_col = self.update_headers(worksheet)
+            # Setup headers (Single Read)
+            headers = worksheet.row_values(1)
+            period_col = self.update_headers(worksheet, headers=headers)
+            
             if dry_run:
                 print(colourise("yellow", "[DRY-RUN]"), f"Fetched stats for {len(vos_stats)} VOs.")
             else:
