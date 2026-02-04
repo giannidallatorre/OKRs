@@ -279,14 +279,20 @@ class SLAsAccounting:
              if "TOTAL" in current_col1:
                  total_row_idx = current_col1.index("TOTAL") + 1
                  cells_to_update.append(gspread.Cell(total_row_idx, period_col, total_cpu))
+                 print(f"[INFO] Buffered TOTAL update: {total_cpu}")
         except:
              pass
 
         # Perform batch update
         if cells_to_update:
-            print(colourise("cyan", "[INFO]"), f"Performing batch update of {len(cells_to_update)} cells...")
+            print(colourise("cyan", "[INFO]"), f"Performing batch update of {len(cells_to_update)} cells (Period: {reporting_period}, Column: {period_col})...")
             try:
+                # Truncate some logs if too many
+                if len(cells_to_update) > 10:
+                    print(f"[DEBUG] First 5 cells: {[(c.row, c.col, c.value) for c in cells_to_update[:5]]}")
+                
                 worksheet.update_cells(cells_to_update, value_input_option='RAW')
+                print(colourise("green", "[SUCCESS]"), f"Successfully wrote {len(cells_to_update)} cells.")
             except Exception as e:
                 print(colourise("red", "[ERROR]"), f"Failed batch update: {e}")
 

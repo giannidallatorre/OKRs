@@ -220,35 +220,24 @@ class CPUAccounting:
                  except:
                      pass
 
-            # Update the column values for the period rows 2 to 8
-            # Rows correspond to the labels list in update_headers
+            # Prepare column data
             cpu_val = summary["total_cloud_cpu_hours"] if 'cloud' in scope else summary["total_htc_cpu"]
-            
             col_values = [
-                # Row 2: CPU val
-                cpu_val,
-                # Row 3: Total counted
-                summary["total"],
-                # Row 4: VOs List
-                VOs_string,
-                # Row 5: No CPU count
-                len(summary["noVOsCPUs"]),
-                # Row 6: No CPU List
-                NOVOs_string,
-                # Row 7: Diff
-                result,
-                # Row 8: Follow up
-                '-'
+                [cpu_val],
+                [summary["total"]],
+                [VOs_string],
+                [len(summary["noVOsCPUs"])],
+                [NOVOs_string],
+                [result],
+                ['-']
             ]
             
-            # Convert to Cell update list for batch update_cells
-            cells_to_update = []
-            for i, val in enumerate(col_values):
-                row_idx = i + 2 # Metrics start at Row 2
-                cells_to_update.append(gspread.Cell(row_idx, period_col, val))
+            # Determine range (e.g., B2:B8)
+            col_letter = gspread.utils.lexicographical_index_to_letter(period_col)
+            row_range = f"{col_letter}2:{col_letter}8"
             
-            print(f"[INFO] Updating {accounting_period} in column {period_col}...")
-            worksheet.update_cells(cells_to_update, value_input_option='RAW')
+            print(f"[INFO] Writing data to {row_range} ({accounting_period}). Values: {cpu_val}, {summary['total']} VOs")
+            worksheet.update(row_range, col_values, value_input_option='RAW')
 
             worksheet.insert_note("A1", f"Last update on: {timestamp}")
 
