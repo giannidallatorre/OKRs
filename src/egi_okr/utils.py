@@ -414,6 +414,7 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
             return None
 
         # Open the GoogleSheet
+        just_created = False
         try:
             sheet_name = env.get(spreadsheet_env_var)
             if not sheet_name:
@@ -429,6 +430,7 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
             try:
                 print(colourise("cyan", "[INFO]"), f"Creating new spreadsheet: '{sheet_name}'...")
                 sheet = account.create(sheet_name)
+                just_created = True
                 print(colourise("green", "[SUCCESS]"), f"Created spreadsheet: '{sheet.title}'")
                 print(colourise("green", "[INFO]"), f"URL: {sheet.url}")
             except Exception as e:
@@ -436,28 +438,28 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                 return None
 
         # Check permissions and share with user if needed
-        # This runs for both existing and newly created sheets
+        # Use a process-level cache to avoid repetitive sharing in the same run (e.g. backfill)
+        global _SHARED_CACHE
+        if '_SHARED_CACHE' not in globals():
+            _SHARED_CACHE = set()
+
         user_email = env.get('USER_EMAIL')
         if user_email:
-            try:
-                # Blindly attempt to share - gspread handles 'already exists' gracefully usually,
-                # or we catch the exception. More efficient than listing permissions which requires Owner role.
-                # Actually, Service Account IS Owner if it created it.
-                # If SA is just an editor (Production sheet), this might fail if it can't share.
-                # But for Test sheet (created by SA), it works.
-                print(colourise("cyan", "[INFO]"), f"Ensuring access for {user_email}...")
-                sheet.share(user_email, perm_type='user', role='writer')
-                print(colourise("green", "[SUCCESS]"), f"Shared with {user_email} (or already shared).")
-            except Exception as e:
-                # Don't abort if sharing fails (might be Prod sheet owned by someone else)
-                print(colourise("yellow", "[WARN]"), f"Could not share spreadsheet: {e}")
+            cache_key = (sheet.id, user_email)
+            if cache_key not in _SHARED_CACHE:
+                try:
+                    # If just created, we MUST notify so the user gets the link.
+                    # If it already existed, we share with notify=False to ensure access without spam.
+                    print(colourise("cyan", "[INFO]"), f"Ensuring access for {user_email}...")
+                    sheet.share(user_email, perm_type='user', role='writer', notify=just_created)
+                    print(colourise("green", "[SUCCESS]"), f"Shared with {user_email} (notify={just_created}).")
+                    _SHARED_CACHE.add(cache_key)
+                except Exception as e:
+                    # Don't abort if sharing fails (might be Prod sheet owned by someone else)
+                    print(colourise("yellow", "[WARN]"), f"Could not share spreadsheet: {e}")
         else:
              if account.auth.service_account_email:
                  print(colourise("yellow", "[INFO]"), f"Sheet owned/accessed by: {account.auth.service_account_email}")
-             # If we are here, we probably didn't create it (since that returns None on fail),
-             # and we failed to share it (or didn't try).
-             # We should NOT return None here, because the sheet WAS found/opened successfully above.
-             # We only log the sharing status.
              pass
 
         # Opening the sheet validates access. If it fails, common errors are handled.
