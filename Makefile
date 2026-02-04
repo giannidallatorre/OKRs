@@ -28,13 +28,13 @@ test-act: ## Run integration test with real Google Sheets (requires secrets)
 
 test: test-unit test-act ## Run both unit and integration tests
 
-backfill: ## Backfill historical data (2020-2025). Usage: make backfill [ARGS="--start 2020 --end 2025 --dry-run"]
+backfill: ## Backfill historical data (2020-2025). Usage: make backfill ARGS="--start 2020 --end 2025 --dry-run"
 	@if [ ! -f act_setup/local.secrets ]; then \
 		echo "$(RED)❌ Error: act_setup/local.secrets not found$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(GREEN)Starting historical backfill (2020-2025)...$(NC)"
-	@export PYTHONPATH=src && . act_setup/local.secrets 2>/dev/null || true && python3 -m egi_okr.backfill $(ARGS)
+	@export PYTHONPATH=src && python3 -m egi_okr.backfill $(ARGS)
 	@echo "$(GREEN)✅ Backfill completed$(NC)"
 
 ##@ Development

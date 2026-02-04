@@ -17,7 +17,28 @@ def get_quarters(start_year, end_year):
         quarters.append({"from": f"{year}/10", "to": f"{year}/12"})
     return quarters
 
+def load_secrets(path):
+    """Simple manual loader for KEY=VAL secret files to avoid dependencies."""
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, val = line.strip().split("=", 1)
+                key = key.strip()
+                val = val.strip()
+                # Remove quotes if present
+                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                    val = val[1:-1]
+                os.environ[key] = val
+
 def main():
+    # Load secrets from local file for native run
+    load_secrets("act_setup/local.secrets")
+    
     parser = argparse.ArgumentParser(description="Backfill OKR data for previous years")
     parser.add_argument("--start", type=int, default=2020, help="Start year (default: 2020)")
     parser.add_argument("--end", type=int, default=2025, help="End year (default: 2025)")
