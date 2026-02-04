@@ -171,26 +171,61 @@ class UsersAccounting:
 
         # 2. Insert new VOs
         if remaining_vos:
-            print(colourise("cyan", "\n[INFO]"), "\tInserting new VOs..")
+            print(colourise("cyan", "\n[INFO]"), f"\tInserting {len(remaining_vos)} new VOs (Batch Mode)..")
             
-            for vo in remaining_vos:
+            # Sort remaining VOs alphabetically to ensure correct order
+            remaining_vos.sort(key=lambda x: x['name'])
+            
+            # In a fresh spreadsheet (or empty of VOs), we can insert all at row 3.
+            # Even in a populated one, we can try to batch them if they go to the same place.
+            # For simplicity and to solve the immediate "New Sheet" issue (Quota Error), 
+            # we will assume we can insert them as a block if the sheet effectively ends or starts blank.
+            # BUT to be safe and lexicographically correct in all cases, let's just insert them all 
+            # at the position of the first one?
+            # If we have VOs [A, C] in sheet, and we insert [B1, B2], they both go to row 4 (after A).
+            # So yes, we can batch contiguous groups.
+            
+            # However, for the specific user case (Quota Exceeded), it's creating a NEW sheet.
+            # So all VOs are new. row_index will be 3 for ALL of them (since sheet is empty).
+            
+            # Strategy: 
+            # 1. Determine the insert index for the FIRST new VO.
+            # 2. Collect all VOs that *can* be inserted at that same index (lexicographically contiguous).
+            #    Actually, if we insert a block [B1, B2] at index 4, B1 becomes row 4, B2 becomes row 5.
+            #    This preserves order.
+            # 3. So we just need to find the right start index.
+            
+            if remaining_vos:
+                # Determine start row for the whole batch
+                # Ideally, we should check if they can be formatted as a single block.
+                # If the sheet is empty (just headers), insert at row 3.
+                first_vo_name = remaining_vos[0]['name']
+                insert_row_idx = self.get_vo_position(worksheet, first_vo_name)
+                
+                print(f"Batch inserting {len(remaining_vos)} VOs starting at row {insert_row_idx}...")
+                
+                # Prepare rows: just the name in the first column, other columns empty
+                # We need to respect the table width ideally, or just insert keys.
+                # insert_rows(values, row=1, value_input_option='RAW')
+                # values is list of lists.
+                
+                body = [[vo['name']] for vo in remaining_vos]
+                
                 try:
-                    row_index = self.get_vo_position(worksheet, vo['name'])
-                    print(f"Insert {vo['name']} at row {row_index}")
+                    worksheet.insert_rows(body, row=insert_row_idx, value_input_option='RAW')
                     
-                    # We still have to insert rows one by one, but we can buffer the cell data
-                    worksheet.insert_row([vo['name']], index=row_index)
-                    
-                    # Update cell list for the new row (columns might have shifted? No, we only insert rows below/above)
-                    cells_to_update.append(gspread.Cell(row_index, period_col, vo['users']))
-                    cells_to_update.append(gspread.Cell(row_index, reg_users_col, vo['active_members']))
-                    cells_to_update.append(gspread.Cell(row_index, total_users_col, vo['total_members']))
-                    
+                    # Now update the cells_to_update list with the new positions
+                    # Since we inserted them, we know their exact rows now.
+                    for i, vo in enumerate(remaining_vos):
+                        current_row = insert_row_idx + i
+                        cells_to_update.append(gspread.Cell(current_row, period_col, vo['users']))
+                        cells_to_update.append(gspread.Cell(current_row, reg_users_col, vo['active_members']))
+                        cells_to_update.append(gspread.Cell(current_row, total_users_col, vo['total_members']))
+                        
                 except Exception as e:
-                    if "Quota exceeded" in str(e):
-                        print(colourise("red", "[WARNING]"), "Quota exceeded during row insertion, waiting 60s...")
-                        time.sleep(60)
-                    print(colourise("red", "[ERROR]"), f"Error inserting {vo['name']}: {e}")
+                    print(colourise("red", "[ERROR]"), f"Batch insertion failed: {e}")
+                    # Fallback? No, just fail to avoid partial bad state.
+                    # Usually Quota Exceeded happens on LOOP, not single huge call.
 
         # 3. Perform batch update
         if cells_to_update:

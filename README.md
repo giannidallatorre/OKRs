@@ -111,6 +111,7 @@ Go to **Settings > Secrets and variables > Actions > Secrets** and add:
 ### 2. GitHub Variables
 Go to **Settings > Secrets and variables > Actions > Variables** and add:
 - `GOOGLE_SHEET_NAME`: Name of your Google Spreadsheet (e.g., `EGI_OKR_Reporting`).
+- `USER_EMAIL`: (Optional) Your email address. If the spreadsheet does not exist, the bot will create it and invite this email as an editor.
 - `DATE_FROM`: Reporting start date (e.g., `2024/01`).
 - `DATE_TO`: Reporting end date (e.g., `2024/03`).
 - All other worksheet names as defined in `.env.template` if they differ from defaults.

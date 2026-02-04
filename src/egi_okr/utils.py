@@ -451,12 +451,14 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
         else:
              if account.auth.service_account_email:
                  print(colourise("yellow", "[INFO]"), f"Sheet owned/accessed by: {account.auth.service_account_email}")
-                print(colourise("red", "[ABORT]"), f"Failed to create spreadsheet: {e}")
-                return None
+             # If we are here, we probably didn't create it (since that returns None on fail),
+             # and we failed to share it (or didn't try).
+             # We should NOT return None here, because the sheet WAS found/opened successfully above.
+             # We only log the sharing status.
+             pass
 
         # Opening the sheet validates access. If it fails, common errors are handled.
         
-        # Open the Worksheet
         # Open the Worksheet
         try:
             if worksheet_env_var not in env:
