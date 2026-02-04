@@ -75,6 +75,29 @@ This GitHub repository includes clients to generate:
 * [The number of Services Orders (SOs) received throught the EOSC Marketplace](pyOKR_ServiceOrders_Accounting)
 * [Report of the VOs created/leaving the EGI Operations Portal](pyOKR_VOs_Report)
 
+## Running Tests
+
+This project includes a `Makefile` to simplify running unit and integration tests.
+
+### Unit Tests
+Run fast unit tests (no external dependencies required):
+```bash
+make test-unit
+```
+
+### Integration Tests (Act)
+Run the GitHub Actions workflow locally using `act` (requires Docker and secrets):
+```bash
+make test-act
+```
+*Note: This requires a `act_setup/local.secrets` file. See `act_setup/README.md` for setup instructions.*
+
+### All Tests
+Run both unit and integration tests:
+```bash
+make test
+```
+
 ## GitHub Actions Setup
 
 To run the OKR updates automatically via GitHub Actions, you must configure the following in your repository:
