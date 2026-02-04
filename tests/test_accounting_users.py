@@ -92,8 +92,8 @@ class TestUsersAccounting(unittest.TestCase):
         mock_worksheet.update_cells.assert_called()
         
         # 3. New VO inserted?
-        # CMS is new. Should call insert_row.
-        mock_worksheet.insert_row.assert_called()
+        # CMS is new. Should call insert_rows in batch mode.
+        mock_worksheet.insert_rows.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

@@ -262,9 +262,12 @@ def get_env_settings():
                  d[key] = d['JIRA_PROJECT']
 
     # Fallback for GOOGLE_SLAs_SHEET_NAME
-    # If not set by environment, use GOOGLE_SHEET_NAME
-    if not d.get('GOOGLE_SLAs_SHEET_NAME'):
-        d['GOOGLE_SLAs_SHEET_NAME'] = d.get('GOOGLE_SHEET_NAME')
+    # Precedence: Explicit ENV > GOOGLE_SHEET_NAME (if set) > Default
+    if not os.environ.get('GOOGLE_SLAs_SHEET_NAME'):
+        if os.environ.get('GOOGLE_SHEET_NAME'):
+             d['GOOGLE_SLAs_SHEET_NAME'] = d['GOOGLE_SHEET_NAME']
+        else:
+             d['GOOGLE_SLAs_SHEET_NAME'] = defaults.get('GOOGLE_SLAs_SHEET_NAME')
 
     return d
 
