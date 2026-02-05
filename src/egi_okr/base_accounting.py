@@ -90,15 +90,24 @@ class BaseAccounting:
 
     def apply_standard_formatting(self, worksheet, last_col_letter='Z'):
         """Global aesthetic standardization."""
-        worksheet.format(f"A1:{last_col_letter}1", {
-            "backgroundColor": {"red": 55.0, "green": 15.0, "blue": 10.0},
-            "horizontalAlignment": "LEFT",
-            "textFormat": {"fontSize": 11, "bold": True}
-        })
-        worksheet.format(f"A2:{last_col_letter}500", {
-            "horizontalAlignment": "RIGHT",
-            "textFormat": {"fontSize": 10}
-        })
+        # Use batch_format to combine multiple format operations into one API call
+        worksheet.batch_format([
+            {
+                'range': f'A1:{last_col_letter}1',
+                'format': {
+                    "backgroundColor": {"red": 0.216, "green": 0.059, "blue": 0.039},
+                    "horizontalAlignment": "LEFT",
+                    "textFormat": {"fontSize": 11, "bold": True}
+                }
+            },
+            {
+                'range': f'A2:{last_col_letter}500',
+                'format': {
+                    "horizontalAlignment": "RIGHT",
+                    "textFormat": {"fontSize": 10}
+                }
+            }
+        ])
 
     def update_timestamp(self, worksheet, cell="A1", prefix="Last update on: "):
         """Update last update note/cell."""

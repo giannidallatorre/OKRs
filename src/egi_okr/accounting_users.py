@@ -28,8 +28,6 @@ class UsersAccounting(BaseAccounting):
 
     def process_metric_sheet(self, worksheet, vos_list, metric_key, metric_name):
         """Generic method to process a metric sheet (active users, registered, or total)."""
-        self.apply_standard_formatting(worksheet)
-        
         # 1. Fetch bulk data once
         all_rows = worksheet.get_all_values()
         headers = all_rows[0] if all_rows else []
