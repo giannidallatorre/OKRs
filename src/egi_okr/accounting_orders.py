@@ -77,8 +77,16 @@ class OrdersAccounting(BaseAccounting):
         all_values = worksheet.get_all_values()
         headers = all_values[0] if all_values else []
         
-        period_col = self.get_period_column(worksheet, headers=headers)
+        # Ensure A1 has sensible header
+        if not headers or not headers[0]:
+            print(f"\tInitializing worksheet header...")
+            worksheet.update('A1', [['Service']], value_input_option='RAW')
+            headers = ['Service']
+        
+        # Apply uniform formatting
         self.apply_standard_formatting(worksheet)
+        
+        period_col = self.get_period_column(worksheet, headers=headers)
         
         cells = []
         for i, (name, count) in enumerate(buckets.items()):

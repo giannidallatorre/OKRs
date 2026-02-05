@@ -126,9 +126,17 @@ class SLAsAccounting(BaseAccounting):
         all_rows = worksheet.get_all_values()
         headers = all_rows[0] if all_rows else []
         existing_names = [r[0] if r else "" for r in all_rows]
+        
+        # Ensure A1 has sensible header
+        if not headers or not headers[0]:
+            print(f"\tInitializing worksheet header...")
+            worksheet.update('A1', [['VO']], value_input_option='RAW')
+            headers = ['VO']
 
-        period_col = self.get_period_column(worksheet, headers=headers)
+        # Apply uniform formatting
         self.apply_standard_formatting(worksheet)
+        
+        period_col = self.get_period_column(worksheet, headers=headers)
 
         # 3. Update Rows
         remaining_vos = []

@@ -33,6 +33,14 @@ class UsersAccounting(BaseAccounting):
         headers = all_rows[0] if all_rows else []
         existing_names = [r[0] if r else "" for r in all_rows]
         
+        # Ensure A1 has sensible header if empty
+        if not headers or not headers[0]:
+            print(f"\tInitializing {metric_name} sheet header...")
+            worksheet.update('A1', [['VO']], value_input_option='RAW')
+            headers = ['VO']
+            all_rows = worksheet.get_all_values()
+            existing_names = [r[0] if r else "" for r in all_rows]
+        
         # 2. Find or create period column
         period_col = self.get_period_column(worksheet, headers=headers)
         
@@ -70,6 +78,17 @@ class UsersAccounting(BaseAccounting):
         """Unified logic from legacy vo_reports.py - Created/Deleted VO counts."""
         worksheet = self.init_worksheet('GOOGLE_VOS_REPORT_WORKSHEET')
         if not worksheet: return
+
+        # Ensure proper headers
+        all_rows = worksheet.get_all_values()
+        headers = all_rows[0] if all_rows else []
+        if not headers or not headers[0]:
+            print(f"\tInitializing VOs Report sheet headers...")
+            worksheet.update('A1:E1', [['Period', 'Total', 'Deleted', 'Production', 'VO List']], value_input_option='RAW')
+            headers = ['Period', 'Total', 'Deleted', 'Production', 'VO List']
+
+        # Apply uniform formatting
+        self.apply_standard_formatting(worksheet)
 
         vos_report = get_VOs_report(self.env, session=self.session)
         if dry_run:
@@ -111,6 +130,7 @@ class UsersAccounting(BaseAccounting):
             worksheet_active = self.init_worksheet('GOOGLE_VOS_WORKSHEET')
             if worksheet_active:
                 print(colourise("cyan", "\n[INFO]"), "Processing VOs - Active Users sheet...")
+                self.apply_standard_formatting(worksheet_active)
                 self.process_metric_sheet(worksheet_active, vos_stats, 'users', 'Active Users')
                 self.update_timestamp(worksheet_active)
             else:
@@ -120,6 +140,7 @@ class UsersAccounting(BaseAccounting):
             worksheet_registered = self.init_worksheet('GOOGLE_VOS_REGISTERED_WORKSHEET')
             if worksheet_registered:
                 print(colourise("cyan", "\n[INFO]"), "Processing VOs - Registered Users sheet...")
+                self.apply_standard_formatting(worksheet_registered)
                 self.process_metric_sheet(worksheet_registered, vos_stats, 'active_members', 'Registered Users')
                 self.update_timestamp(worksheet_registered)
             else:
@@ -129,6 +150,7 @@ class UsersAccounting(BaseAccounting):
             worksheet_total = self.init_worksheet('GOOGLE_VOS_TOTAL_WORKSHEET')
             if worksheet_total:
                 print(colourise("cyan", "\n[INFO]"), "Processing VOs - Total Users sheet...")
+                self.apply_standard_formatting(worksheet_total)
                 self.process_metric_sheet(worksheet_total, vos_stats, 'total_members', 'Total Users')
                 self.update_timestamp(worksheet_total)
             else:

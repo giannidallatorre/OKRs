@@ -89,13 +89,12 @@ class BaseAccounting:
         return row
 
     def apply_standard_formatting(self, worksheet, last_col_letter='Z'):
-        """Global aesthetic standardization."""
-        # Use batch_format to combine multiple format operations into one API call
+        """Apply consistent formatting style to all sheets."""
         worksheet.batch_format([
             {
                 'range': f'A1:{last_col_letter}1',
                 'format': {
-                    "backgroundColor": {"red": 0.216, "green": 0.059, "blue": 0.039},
+                    "backgroundColor": {"red": 55.0, "green": 15.0, "blue": 10.0},
                     "horizontalAlignment": "LEFT",
                     "textFormat": {"fontSize": 11, "bold": True}
                 }
