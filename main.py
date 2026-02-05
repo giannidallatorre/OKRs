@@ -42,7 +42,7 @@ def main():
             app.run(dry_run=args.dry_run)
         elif args.task == 'slas':
             app = SLAsAccounting()
-            app.main(dry_run=args.dry_run)
+            app.run(dry_run=args.dry_run)
         elif args.task == 'reports':
             app = VOsReports()
             app.run(dry_run=args.dry_run)
