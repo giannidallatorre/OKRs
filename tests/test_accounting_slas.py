@@ -71,5 +71,146 @@ class TestSLAsAccounting(unittest.TestCase):
         cells = mock_target_ws.update_cells.call_args[0][0]
         self.assertEqual(cells[0].value, 123)
 
+    @patch('requests.Session.get')
+    @patch('egi_okr.base_accounting.init_GWorkSheet')
+    def test_header_initialization_with_existing_data_regression(self, mock_init, mock_get):
+        """
+        Regression test: Verify that when headers are initialized, 
+        existing VOs are correctly identified and updated (not re-inserted).
+        
+        This test catches the bug where all_rows and existing_names weren't 
+        refreshed after header initialization, causing all VOs to be treated 
+        as new inserts instead of updates, resulting in empty sheets.
+        """
+        # 1. Mock Sheets
+        mock_target_ws = MagicMock()
+        mock_sla_source_ws = MagicMock()
+        mock_init.side_effect = [mock_target_ws, mock_sla_source_ws]
+        
+        # 2. Mock Source Data (SLA sheet)
+        row = [''] * 20
+        row[0] = "Customer X"
+        row[6] = "FINALIZED"
+        row[10] = "vo.test"
+        row[16] = "TRUE"
+        mock_sla_source_ws.get_all_values.return_value = [['H']*20, row]
+        
+        # 3. Mock Target Sheet - SIMULATE EMPTY HEADER (needs initialization)
+        # First call returns empty sheet, simulating new sheet
+        # get_all_values() is called multiple times:
+        # - First in run() at line "all_rows = worksheet.get_all_values()"
+        # - Second in setup after header init (should refresh)
+        call_count = {'count': 0}
+        def mock_get_all_values():
+            call_count['count'] += 1
+            if call_count['count'] == 1:
+                # First call: sheet is empty (only needs header init)
+                return [[]]
+            else:
+                # After header init: sheet has header + existing VO
+                return [['VO', '2023.10-12'], ['vo.test', 456]]
+        
+        mock_target_ws.get_all_values.side_effect = mock_get_all_values
+        mock_target_ws.cell.return_value.value = None  # Empty A1
+        
+        # 4. Mock API responses
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [{'id': 'Total', 'Total': 789}]
+        mock_get.return_value = mock_resp
+        
+        self.app.run()
+        
+        # CRITICAL ASSERTIONS:
+        # 1. update() should be called once for header initialization
+        mock_target_ws.update.assert_called()
+        # 2. update_cells should be called for data updates
+        mock_target_ws.update_cells.assert_called()
+        
+        # 3. Verify that at least one cell was updated (not all inserts)
+        cells = mock_target_ws.update_cells.call_args[0][0]
+        self.assertGreater(len(cells), 0, "Data should be written to cells")
+        
+        # 4. Verify that the value is the new CPU value (not empty/None)
+        self.assertEqual(cells[0].value, 789, "CPU value should be updated with API data")
+
+    @patch('requests.Session.get')
+    @patch('egi_okr.base_accounting.init_GWorkSheet')
+    def test_slas_data_not_empty_regression(self, mock_init, mock_get):
+        """
+        Regression test: Ensure SLAs module always reports data when VOs exist.
+        
+        This catches the class of bugs where:
+        - Data is fetched successfully (API calls work)
+        - But results are never written to the sheet (empty output)
+        
+        A sensible result should have:
+        - At least one VO with non-zero CPU values
+        - update_cells called with non-empty cell list
+        """
+        # 1. Mock sheets
+        mock_target_ws = MagicMock()
+        mock_sla_source_ws = MagicMock()
+        mock_init.side_effect = [mock_target_ws, mock_sla_source_ws]
+        
+        # 2. Mock source with multiple VOs
+        row1 = [''] * 20
+        row1[0] = "Customer A"
+        row1[6] = "FINALIZED"
+        row1[10] = "vo.alice"
+        row1[16] = "TRUE"
+        
+        row2 = [''] * 20
+        row2[0] = "Customer B"
+        row2[6] = "FINALIZED"
+        row2[10] = "vo.bob"
+        row2[16] = "TRUE"
+        
+        mock_sla_source_ws.get_all_values.return_value = [['H']*20, row1, row2]
+        
+        # 3. Mock target sheet with headers already in place
+        mock_target_ws.get_all_values.return_value = [['VO', '2024.01-03']]
+        mock_target_ws.cell.return_value.value = 'VO'
+        
+        # 4. Mock API - return realistic values
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        
+        # Different values for each VO
+        def mock_api_response(*args, **kwargs):
+            url = args[0] if args else ""
+            if 'vo.alice' in url:
+                mock_resp.json.return_value = [{'id': 'Total', 'Total': 1500}]
+            elif 'vo.bob' in url:
+                mock_resp.json.return_value = [{'id': 'Total', 'Total': 2300}]
+            else:
+                mock_resp.json.return_value = [{'id': 'Total', 'Total': 0}]
+            return mock_resp
+        
+        mock_get.side_effect = mock_api_response
+        
+        self.app.run()
+        
+        # REGRESSION CHECKS:
+        # 1. Board should not be empty - update_cells must be called
+        self.assertTrue(mock_target_ws.update_cells.called, 
+                       "Data should be written (regression: no cells updated)")
+        
+        # 2. Should have at least 2 VOs worth of updates
+        cells = mock_target_ws.update_cells.call_args[0][0]
+        self.assertGreaterEqual(len(cells), 2, 
+                               "Should update at least 2 VOs worth of cells")
+        
+        # 3. Extract and verify values are realistic (not empty/None)
+        values = [cell.value for cell in cells]
+        non_empty_values = [v for v in values if v is not None and v != '']
+        self.assertGreater(len(non_empty_values), 0,
+                          "Some cells should contain non-empty values")
+        
+        # 4. Should have sensible CPU numbers (> 0)
+        cpu_values = [v for v in values if isinstance(v, (int, float)) and v > 0]
+        self.assertGreater(len(cpu_values), 0,
+                          "Should have at least some non-zero CPU values")
+
 if __name__ == '__main__':
     unittest.main()

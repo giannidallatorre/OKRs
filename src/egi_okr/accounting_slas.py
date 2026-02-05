@@ -132,6 +132,9 @@ class SLAsAccounting(BaseAccounting):
             print(f"\tInitializing worksheet header...")
             worksheet.update('A1', [['VO']], value_input_option='RAW')
             headers = ['VO']
+            # Refresh after header initialization
+            all_rows = worksheet.get_all_values()
+            existing_names = [r[0] if r else "" for r in all_rows]
 
         # Apply uniform formatting
         self.apply_standard_formatting(worksheet)

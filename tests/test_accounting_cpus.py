@@ -62,5 +62,39 @@ class TestCPUAccounting(unittest.TestCase):
         pos = self.app.get_period_column(mock_ws)
         self.assertEqual(pos, 3)
 
-if __name__ == '__main__':
-    unittest.main()
+    @patch('requests.Session.get')
+    @patch('egi_okr.base_accounting.init_GWorkSheet')
+    def test_cpu_data_not_empty_regression(self, mock_init, mock_get):
+        """
+        Regression test: Ensure CPU module reports data correctly after header initialization.
+        
+        This catches the class of bugs where:
+        - API returns data successfully
+        - But write operations fail to commit results (empty sheet output)
+        """
+        mock_ws = MagicMock()
+        mock_init.return_value = mock_ws
+        
+        # Mock API response with realistic data
+        mock_get.return_value.json.return_value = [
+            {'id': 'Total', 'Total': 5000},
+            {'id': 'vo.alice', 'Total': 1500},
+            {'id': 'vo.bob', 'Total': 2000},
+        ]
+        mock_get.return_value.status_code = 200
+        
+        # Mock worksheet with headers that need initialization
+        mock_ws.get_all_values.return_value = [['Metric', '2024.01-03']]
+        mock_ws.cell.return_value.value = 'Metric'
+        
+        self.app.run()
+        
+        # REGRESSION CHECKS:
+        # 1. Should write data to the sheet
+        mock_ws.update.assert_called()
+        
+        # 2. Verify data was written (check for range update call)
+        # The module should call worksheet.update() with CPU values
+        calls = mock_ws.update.call_args_list
+        self.assertGreater(len(calls), 0, "Should have written data to worksheet")
+
