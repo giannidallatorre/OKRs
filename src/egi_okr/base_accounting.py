@@ -35,7 +35,9 @@ class BaseAccounting:
         return None
 
     def get_period_column(self, worksheet, start_col=2, static_headers=None, headers=None):
-        """Standardized logic to find or add the reporting period column in Row 1."""
+        """Standardized logic to find or add the reporting period column in Row 1.
+        Default: Descending lexicographical order (newest first).
+        """
         if headers is None:
             headers = worksheet.row_values(1)
         
@@ -43,24 +45,26 @@ class BaseAccounting:
         if self.accounting_period in headers:
             return headers.index(self.accounting_period) + 1
 
-        # 2. Find insertion point
+        # 2. Find insertion point (Descending: newest in column 2)
         y_pos = start_col
         if headers:
             for i, header in enumerate(headers):
                 if i < (start_col - 1): continue
                 if static_headers and header in static_headers: break
                 if header == "" or header == "TOTAL": break
+                
+                # Descending logic: if current header is smaller than new period, insert here
                 if header < self.accounting_period:
-                    y_pos = i + 2
-                else:
                     y_pos = i + 1
                     break
+                else:
+                    y_pos = i + 2
         
         print(f"\tAdding period '{self.accounting_period}' at column {y_pos}")
         worksheet.insert_cols([[self.accounting_period]], y_pos, value_input_option='RAW', inherit_from_before=True)
         return y_pos
 
-    def get_item_row(self, worksheet, item_name, start_row=2, first_col_index=1, all_values=None):
+    def get_item_row(self, worksheet, item_name, start_row=2, first_col_index=1, all_values=None, descending=False):
         """Lexicographical row finding for items in Column A (or first_col_index)."""
         if all_values is None:
             all_values = worksheet.get_all_values()
@@ -71,10 +75,17 @@ class BaseAccounting:
             for values in all_values[start_row-1:]:
                 val = values[first_col_index-1] if len(values) >= first_col_index else ""
                 if "TOTAL" in val.upper(): break
-                if val < item_name:
-                    row += 1
+                
+                if descending:
+                    if val < item_name:
+                        break
+                    else:
+                        row += 1
                 else:
-                    break
+                    if val < item_name:
+                        row += 1
+                    else:
+                        break
         return row
 
     def apply_standard_formatting(self, worksheet, last_col_letter='Z'):

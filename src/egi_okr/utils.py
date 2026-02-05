@@ -121,9 +121,6 @@ def colourise(colour, text):
         return "\033[1;37m" + str(text) + "\033[1;m"
     return str(text)
 
-    if colour == "gray":
-        return "\033[1;37m" + str(text) + "\033[1;m"
-    return str(text)
 
 def find_difference(activeVOs_1, activeVOs_2):
     ''' Find difference between two comma-separated strings '''

@@ -118,7 +118,7 @@ class UsersAccounting(BaseAccounting):
                 gspread.Cell(row_idx, 5, vos_string)
             ], value_input_option='RAW')
         else:
-            row_idx = self.get_item_row(worksheet, self.accounting_period, first_col_index=1, all_values=all_rows)
+            row_idx = self.get_item_row(worksheet, self.accounting_period, first_col_index=1, all_values=all_rows, descending=True)
             worksheet.insert_row([self.accounting_period, total, total_deleted, total_prod, vos_string], index=row_idx)
 
     def run(self, dry_run=False):

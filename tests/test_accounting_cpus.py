@@ -55,7 +55,8 @@ class TestCPUAccounting(unittest.TestCase):
     def test_get_period_column_sorting(self):
         mock_ws = MagicMock()
         mock_ws.find.return_value = None
-        mock_ws.row_values.return_value = ["Period Metric", "2024.01-03", "2024.07-09"]
+        # Mocking headers in descending order as per the new requirement
+        mock_ws.row_values.return_value = ["Period Metric", "2024.07-09", "2024.01-03"]
         
         self.app.accounting_period = "2024.04-06"
         pos = self.app.get_period_column(mock_ws)
