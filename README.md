@@ -122,6 +122,7 @@ python3 -m egi_okr.cli --help
 ### Options and Flags
 
 *   `--print`: (Highly Recommended for local testing) Prints results to the terminal instead of pushing to Google Sheets. **Requires no Google credentials.**
+*   `--insecure`: Skip SSL certificate verification. Useful for fixing `[SSL: CERTIFICATE_VERIFY_FAILED]` errors on macOS.
 *   `--scope`: Choose between `cloud` (default) or `htc`.
 *   `--date-from`: Start date for reporting (e.g., `2024/01`).
 *   `--date-to`: End date for reporting (e.g., `2024/03`).
@@ -138,6 +139,32 @@ python3 -m egi_okr.cli slas --print --scope htc --date-from 2024/01 --date-to 20
 # Run all modules and push to Google Sheets (standard behavior)
 python3 -m egi_okr.cli all
 ```
+
+## Troubleshooting
+
+### SSL: CERTIFICATE_VERIFY_FAILED (macOS)
+
+If you encounter an SSL verification error on macOS, it's usually because Python doesn't have its own certificate store.
+
+**Fix 1: Permanent (Recommended)**
+Open your Applications folder, find the Python version you are using (e.g., Python 3.13), and double-click the `Install Certificates.command` file. This will install the necessary root certificates.
+
+**Fix 2: Quick Bypass**
+Use the `--insecure` flag in the CLI:
+```bash
+python3 -m egi_okr.cli cpus --print --insecure
+```
+
+### Persistent Defaults (.env)
+
+You can avoid typing `--print` or `--insecure` every time by setting them in your `.env` file:
+
+```env
+PRINT_MODE=True
+SSL_CHECK=False
+```
+
+When these are set in `.env`, the CLI will use them as defaults unless you explicitly override them (e.g., passing `--no-print` if Typer supported it, but currently flags are additive). **Note:** To disable print mode if set in `.env`, you currently need to change the `.env` file.
 
 ## Running Tests
 

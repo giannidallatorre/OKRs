@@ -34,9 +34,14 @@ def get_service_orders(env, session=None):
         "maxResults": 1000
     }
 
+    token = env.get('JIRA_AUTH_TOKEN')
+    if not token:
+        logging.error("[ERROR] JIRA_AUTH_TOKEN not found in environment")
+        return []
+
     headers = {
             "Accept": "application/json",
-            "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
+            "Authorization": "Bearer " + token
     }
 
     try:
@@ -74,9 +79,14 @@ def get_customers_complains(env, session=None):
         "maxResults": 10000
     }
     
+    token = env.get('JIRA_AUTH_TOKEN')
+    if not token:
+        logging.error("[ERROR] JIRA_AUTH_TOKEN not found in environment")
+        return []
+
     headers = {
             "Accept": "application/json",
-            "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
+            "Authorization": "Bearer " + token
     }
 
     try:
@@ -112,9 +122,13 @@ def get_complain_details(env, issue_key, session=None):
 
     _url = env['JIRA_SERVER_URL'] + "rest/api/latest/issue/" + issue_key
 
+    token = env.get('JIRA_AUTH_TOKEN')
+    if not token:
+        return None
+
     headers = {
        "Accept": "Application/json",
-       "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
+       "Authorization": "Bearer " + token
     }
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
@@ -165,9 +179,14 @@ def get_sla_violations(env, session=None):
         "jql": jql
     }
 
+    token = env.get('JIRA_AUTH_TOKEN')
+    if not token:
+        logging.error("[ERROR] JIRA_AUTH_TOKEN not found in environment")
+        return []
+
     headers = {
         "Accept": "application/json",
-        "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
+        "Authorization": "Bearer " + token
     }
 
     try:
@@ -199,9 +218,13 @@ def get_sla_violation_details(env, issue_key, session=None):
 
     _url = env['JIRA_SERVER_URL'] + "rest/api/latest/issue/" + issue_key
 
+    token = env.get('JIRA_AUTH_TOKEN')
+    if not token:
+        return None
+
     headers = {
         "Accept": "Application/json",
-        "Authorization": "Bearer " + env['JIRA_AUTH_TOKEN']
+        "Authorization": "Bearer " + token
     }
 
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'

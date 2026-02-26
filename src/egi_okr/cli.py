@@ -9,15 +9,28 @@ from .accounting_orders import OrdersAccounting
 
 app = typer.Typer(help="EGI OKRs Accounting CLI Tool")
 
+def get_default_print():
+    """Check if PRINT_MODE is enabled in environment."""
+    # We call get_env_settings to ensure .env is loaded
+    env = get_env_settings()
+    return env.get('PRINT_MODE', 'False') == 'True'
+
+def get_default_insecure():
+    """Check if SSL_CHECK is disabled in environment."""
+    env = get_env_settings()
+    return env.get('SSL_CHECK', 'True') == 'False'
+
 def get_scope_env(scope: str, env: dict):
     new_env = env.copy()
     new_env['ACCOUNTING_SCOPE'] = scope.lower()
     return new_env
 
-def run_module(module_class, print_mode: bool, scope: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
+def run_module(module_class, print_mode: bool, scope: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None, insecure: bool = False):
     env = get_env_settings()
     if print_mode:
         env['PRINT_MODE'] = 'True'
+    if insecure:
+        env['SSL_CHECK'] = 'False'
     if scope:
         env['ACCOUNTING_SCOPE'] = scope.lower()
     if date_from:
@@ -31,44 +44,49 @@ def run_module(module_class, print_mode: bool, scope: Optional[str] = None, date
 @app.command()
 def cpus(
     scope: str = typer.Option("cloud", help="Accounting scope (cloud/htc)"),
-    print_mode: bool = typer.Option(False, "--print", help="Print results to terminal instead of Google Sheets"),
+    print_mode: bool = typer.Option(get_default_print, "--print", help="Print results to terminal instead of Google Sheets"),
+    insecure: bool = typer.Option(get_default_insecure, "--insecure", help="Skip SSL certificate verification"),
     date_from: Optional[str] = typer.Option(None, help="Start date (YYYY/MM)"),
     date_to: Optional[str] = typer.Option(None, help="End date (YYYY/MM)")
 ):
     """Run CPU accounting (Cloud or HTC)."""
-    run_module(CPUAccounting, print_mode, scope, date_from, date_to)
+    run_module(CPUAccounting, print_mode, scope, date_from, date_to, insecure)
 
 @app.command()
 def slas(
     scope: str = typer.Option("cloud", help="Accounting scope (cloud/htc)"),
-    print_mode: bool = typer.Option(False, "--print", help="Print results to terminal instead of Google Sheets"),
+    print_mode: bool = typer.Option(get_default_print, "--print", help="Print results to terminal instead of Google Sheets"),
+    insecure: bool = typer.Option(get_default_insecure, "--insecure", help="Skip SSL certificate verification"),
     date_from: Optional[str] = typer.Option(None, help="Start date (YYYY/MM)"),
     date_to: Optional[str] = typer.Option(None, help="End date (YYYY/MM)")
 ):
     """Run SLA accounting."""
-    run_module(SLAsAccounting, print_mode, scope, date_from, date_to)
+    run_module(SLAsAccounting, print_mode, scope, date_from, date_to, insecure)
 
 @app.command()
 def users(
-    print_mode: bool = typer.Option(False, "--print", help="Print results to terminal instead of Google Sheets"),
+    print_mode: bool = typer.Option(get_default_print, "--print", help="Print results to terminal instead of Google Sheets"),
+    insecure: bool = typer.Option(get_default_insecure, "--insecure", help="Skip SSL certificate verification"),
     date_from: Optional[str] = typer.Option(None, help="Start date (YYYY/MM)"),
     date_to: Optional[str] = typer.Option(None, help="End date (YYYY/MM)")
 ):
     """Run Users accounting and reports."""
-    run_module(UsersAccounting, print_mode, None, date_from, date_to)
+    run_module(UsersAccounting, print_mode, None, date_from, date_to, insecure)
 
 @app.command()
 def orders(
-    print_mode: bool = typer.Option(False, "--print", help="Print results to terminal instead of Google Sheets"),
+    print_mode: bool = typer.Option(get_default_print, "--print", help="Print results to terminal instead of Google Sheets"),
+    insecure: bool = typer.Option(get_default_insecure, "--insecure", help="Skip SSL certificate verification"),
     date_from: Optional[str] = typer.Option(None, help="Start date (YYYY/MM)"),
     date_to: Optional[str] = typer.Option(None, help="End date (YYYY/MM)")
 ):
     """Run Service Orders accounting."""
-    run_module(OrdersAccounting, print_mode, None, date_from, date_to)
+    run_module(OrdersAccounting, print_mode, None, date_from, date_to, insecure)
 
 @app.command()
 def all(
-    print_mode: bool = typer.Option(False, "--print", help="Print all results to terminal instead of Google Sheets"),
+    print_mode: bool = typer.Option(get_default_print, "--print", help="Print all results to terminal instead of Google Sheets"),
+    insecure: bool = typer.Option(get_default_insecure, "--insecure", help="Skip SSL certificate verification"),
     date_from: Optional[str] = typer.Option(None, help="Start date (YYYY/MM)"),
     date_to: Optional[str] = typer.Option(None, help="End date (YYYY/MM)")
 ):
@@ -76,14 +94,14 @@ def all(
     print(colourise("bold", "\n>>> Running ALL OKR modules..."))
     # CPUs
     for s in ["cloud", "htc"]:
-        run_module(CPUAccounting, print_mode, s, date_from, date_to)
+        run_module(CPUAccounting, print_mode, s, date_from, date_to, insecure)
     # SLAs
     for s in ["cloud", "htc"]:
-        run_module(SLAsAccounting, print_mode, s, date_from, date_to)
+        run_module(SLAsAccounting, print_mode, s, date_from, date_to, insecure)
     # Users
-    run_module(UsersAccounting, print_mode, None, date_from, date_to)
+    run_module(UsersAccounting, print_mode, None, date_from, date_to, insecure)
     # Orders
-    run_module(OrdersAccounting, print_mode, None, date_from, date_to)
+    run_module(OrdersAccounting, print_mode, None, date_from, date_to, insecure)
 
 if __name__ == "__main__":
     app()

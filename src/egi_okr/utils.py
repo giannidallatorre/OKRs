@@ -157,6 +157,12 @@ def get_env_settings():
     Returns:
         dict: Complete configuration with all required environment variables
     """
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
     d = {}
     
     # List of all known environment variables across all modules
@@ -378,23 +384,11 @@ def validate_google_credentials(service_info):
 def init_google_credentials(env):
     """
     Initialize Google credentials from environment with two-mode support.
-    
-    Service Account Configuration Modes:
-    
-    1. SERVICE_ACCOUNT_JSON (GitHub Actions mode):
-       - String: Full service account JSON as environment variable
-       - Use case: GitHub Actions secrets (large JSON in one secret)
-       - Example: export SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
-    
-    2. SERVICE_ACCOUNT_FILE (Local development mode):
-       - File path: Location of service_account.json file
-       - Default: .config/service_account.json
-       - Use case: Local testing with act or pytest
-       - Example: .config/service_account.json (created from template)
-    
-    Precedence: SERVICE_ACCOUNT_JSON is checked first (GitHub Actions),
-               then falls back to SERVICE_ACCOUNT_FILE (local).
     """
+    # Connection reuse: return cached client if available
+    if env.get('_gspread_account'):
+        return env.get('_gspread_account')
+
     try:
         # Try to load service account from JSON string in environment
         # (GitHub Actions - secrets passed as JSON strings)
@@ -403,7 +397,9 @@ def init_google_credentials(env):
                 service_info = json.loads(env['SERVICE_ACCOUNT_JSON'])
                 if not validate_google_credentials(service_info):
                     return None
-                return gspread.service_account_from_dict(service_info)
+                account = gspread.service_account_from_dict(service_info)
+                env['_gspread_account'] = account
+                return account
             except json.JSONDecodeError:
                 print(colourise("red", "[ABORT]"), \
                     "Invalid SERVICE_ACCOUNT_JSON content")
@@ -421,7 +417,9 @@ def init_google_credentials(env):
                     service_info = json.load(f)
                     if not validate_google_credentials(service_info):
                         return None
-                return gspread.service_account(env['SERVICE_ACCOUNT_FILE'])
+                account = gspread.service_account(env['SERVICE_ACCOUNT_FILE'])
+                env['_gspread_account'] = account
+                return account
             except FileNotFoundError:
                 print(colourise("red", "[ABORT]"), \
                     "SERVICE_ACCOUNT_FILE not found")
@@ -517,7 +515,14 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
             if not sheet_name:
                  print(colourise("red", "[ABORT]"), f"{spreadsheet_env_var} environment variable not set")
                  return None
-            sheet = account.open(sheet_name)
+            
+            # Connection reuse: check spreadsheet cache
+            sheets_cache = env.setdefault('_gspread_sheets', {})
+            if sheet_name in sheets_cache:
+                sheet = sheets_cache[sheet_name]
+            else:
+                sheet = account.open(sheet_name)
+                sheets_cache[sheet_name] = sheet
             
             # Singleton logging: only print connection info once per spreadsheet ID
             if sheet.id not in connections:
@@ -532,6 +537,7 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
             try:
                 print(colourise("cyan", "[INFO]"), f"Creating new spreadsheet: '{sheet_name}'...")
                 sheet = account.create(sheet_name)
+                sheets_cache[sheet_name] = sheet
                 just_created = True
                 print(colourise("green", "[SUCCESS]"), f"Created spreadsheet: '{sheet.title}'")
                 print(colourise("green", "[INFO]"), f"URL: {sheet.url}")
@@ -573,7 +579,15 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                  return None
                  
             worksheet_name = env[worksheet_env_var]
+            
+            # Connection reuse: check worksheet cache
+            ws_cache = env.setdefault('_gspread_worksheets', {})
+            ws_key = f"{sheet.id}:{worksheet_name}"
+            if ws_key in ws_cache:
+                return ws_cache[ws_key]
+                
             worksheet = sheet.worksheet(worksheet_name)
+            ws_cache[ws_key] = worksheet
             return worksheet
         except gspread.exceptions.WorksheetNotFound:
             print(colourise("yellow", "[WARN]"), \
@@ -583,6 +597,7 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                 print(colourise("cyan", "[INFO]"), f"Creating new worksheet: '{worksheet_name}'...")
                 # Create worksheet with sensible default dimensions (enough columns for reports)
                 worksheet = sheet.add_worksheet(title=worksheet_name, rows=100, cols=20)
+                env.setdefault('_gspread_worksheets', {})[f"{sheet.id}:{worksheet_name}"] = worksheet
                 print(colourise("green", "[SUCCESS]"), f"Created worksheet: '{worksheet.title}'")
                 return worksheet
                 

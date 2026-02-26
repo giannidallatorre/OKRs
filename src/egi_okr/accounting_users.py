@@ -132,7 +132,7 @@ class UsersAccounting(BaseAccounting):
             print(colourise("green", f"\t{status}: Fetched stats for {len(vos_stats)} VOs."))
             if self.print_mode:
                 # Show top 5 or just a summary? Let's show a summary and list them if short
-                total_reg = sum(v.get('active_members', 0) for v in vos_stats)
+                total_reg = sum(int(v.get('active_members', 0) or 0) for v in vos_stats)
                 print(f"\tTotal Registered Members: {total_reg}")
                 # List first 10 VOs as example
                 print("\tVO breakdown (sample):")

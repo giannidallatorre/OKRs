@@ -21,6 +21,11 @@ test-unit: ## Run unit tests only (fast, ~1s)
 	@$(PYTEST) tests/ -v --tb=short
 	@echo "$(GREEN)✅ All unit tests passed$(NC)"
 
+test-cli: ## Run CLI specific tests
+	@echo "$(GREEN)Running CLI tests...$(NC)"
+	@$(PYTEST) tests/test_cli.py -v
+	@echo "$(GREEN)✅ CLI tests passed$(NC)"
+
 test-act: ## Run integration test with real Google Sheets (requires secrets)
 	@if [ ! -f act_setup/local.secrets ]; then \
 		echo "$(RED)❌ Error: act_setup/local.secrets not found$(NC)"; \

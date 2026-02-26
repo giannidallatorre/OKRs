@@ -56,6 +56,11 @@ def main():
     env = get_env_settings()
     # Use a single session for all modules during backfill (Connection Pooling)
     env['_requests_session'] = requests.Session()
+    # Initialize GSpread object caches for persistence across modules/periods
+    env['_gspread_account'] = None
+    env['_gspread_sheets'] = {}
+    env['_gspread_worksheets'] = {}
+    
     periods = get_quarters(args.start, args.end)
 
     print(colourise("cyan", "\n[BACKFILL-START]"), f"Years: {args.start}-{args.end} ({len(periods)} periods)")

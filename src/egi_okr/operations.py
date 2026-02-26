@@ -17,6 +17,7 @@
 
 import requests
 import json
+import logging
 import os
 import concurrent.futures
 from .utils import colourise, get_checkin_access_token
@@ -30,10 +31,14 @@ def get_operations_headers(env):
             "Authorization": f"Bearer {access_token}"
         }
     
-    return {
-         "Accept": "application/json",
-         "X-API-Key": env.get('OPERATIONS_API_KEY', '')
-    }
+    api_key = env.get('OPERATIONS_API_KEY')
+    if api_key:
+        return {
+             "Accept": "application/json",
+             "X-API-Key": api_key
+        }
+    
+    return {}
 
 def get_VOs_report(env, session=None):
     '''
@@ -48,6 +53,9 @@ def get_VOs_report(env, session=None):
     end = (env['DATE_TO'].replace("/", "-")) + "-01"
 
     headers = get_operations_headers(env)
+    if not headers:
+        logging.error("[ERROR] Missing credentials for Operations Portal API")
+        return {"created": [], "deleted": []}
 
     # Use /egi-reports/vo as the correct endpoint
     _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo"
