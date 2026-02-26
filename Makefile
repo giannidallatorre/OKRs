@@ -9,11 +9,16 @@ GREEN := \033[0;32m
 YELLOW := \033[1;33m
 NC := \033[0m # No Color
 
+# Environment
+VENV ?= venv
+PYTHON := $(VENV)/bin/python3
+PYTEST := $(VENV)/bin/pytest
+
 ##@ Testing
 
 test-unit: ## Run unit tests only (fast, ~1s)
 	@echo "$(GREEN)Running unit tests...$(NC)"
-	@pytest tests/ -v --tb=short
+	@$(PYTEST) tests/ -v --tb=short
 	@echo "$(GREEN)✅ All unit tests passed$(NC)"
 
 test-act: ## Run integration test with real Google Sheets (requires secrets)
@@ -35,7 +40,7 @@ backfill: ## Backfill historical data (2020-2025). Usage: make backfill ARGS="--
 	fi
 	@echo "$(GREEN)Starting historical backfill (2020-2025)...$(NC)"
 	@rm -f .okr_conn_cache.json
-	@export PYTHONPATH=src && python3 -m egi_okr.backfill $(ARGS)
+	@export PYTHONPATH=src && $(PYTHON) -m egi_okr.backfill $(ARGS)
 	@echo "$(GREEN)✅ Backfill completed$(NC)"
 
 ##@ Development
