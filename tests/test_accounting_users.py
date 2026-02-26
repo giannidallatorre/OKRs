@@ -85,21 +85,21 @@ class TestUsersAccounting(unittest.TestCase):
         
         def active_get_all_values():
             call_count['active'] += 1
-            if call_count['active'] == 1:
+            if call_count['active'] <= 1:
                 return [[]]  # Empty, needs header init
             else:
                 return [['VO', '2024.01-03'], ['vo.alice', 15], ['vo.bob', 22]]
         
         def registered_get_all_values():
             call_count['registered'] += 1
-            if call_count['registered'] == 1:
+            if call_count['registered'] <= 1:
                 return [[]]  # Empty, needs header init
             else:
                 return [['VO', '2024.01-03'], ['vo.alice', 8], ['vo.bob', 12]]
         
         def total_get_all_values():
             call_count['total'] += 1
-            if call_count['total'] == 1:
+            if call_count['total'] <= 1:
                 return [[]]  # Empty, needs header init
             else:
                 return [['VO', '2024.01-03'], ['vo.alice', 120], ['vo.bob', 95]]

@@ -105,10 +105,10 @@ class TestSLAsAccounting(unittest.TestCase):
         self.app.run()
         
         # CRITICAL ASSERTIONS:
-        # 1. update() should be called once for header initialization
-        mock_target_ws.update.assert_called()
+        # 1. update() should be called for header initialization (via update_worksheet_data)
+        self.assertTrue(mock_target_ws.update.called)
         # 2. update_cells should be called for data updates
-        mock_target_ws.update_cells.assert_called()
+        self.assertTrue(mock_target_ws.update_cells.called)
         
         # 3. Verify that at least one cell was updated (not all inserts)
         cells = mock_target_ws.update_cells.call_args[0][0]

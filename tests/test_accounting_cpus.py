@@ -50,7 +50,8 @@ class TestCPUAccounting(unittest.TestCase):
             mock_session_get.return_value.status_code = 200
             self.app.run()
         
-        mock_ws.update.assert_called()
+        # With centralized update, it might call update() for headers and update_cells() for data
+        self.assertTrue(mock_ws.update.called or mock_ws.update_cells.called)
 
     def test_get_period_column_sorting(self):
         mock_ws = MagicMock()
@@ -90,11 +91,15 @@ class TestCPUAccounting(unittest.TestCase):
         self.app.run()
         
         # REGRESSION CHECKS:
-        # 1. Should write data to the sheet
-        mock_ws.update.assert_called()
+        # 1. Should write data to the sheet (either via update or update_cells)
+        self.assertTrue(mock_ws.update.called or mock_ws.update_cells.called)
         
-        # 2. Verify data was written (check for range update call)
-        # The module should call worksheet.update() with CPU values
-        calls = mock_ws.update.call_args_list
-        self.assertGreater(len(calls), 0, "Should have written data to worksheet")
+        # 2. Verify data was written (check for batch update call)
+        # The module should now use worksheet.update_cells() for metric values
+        if mock_ws.update_cells.called:
+            calls = mock_ws.update_cells.call_args_list
+            self.assertGreater(len(calls), 0, "Should have batch-updated cells")
+        else:
+            calls = mock_ws.update.call_args_list
+            self.assertGreater(len(calls), 0, "Should have updated worksheet")
 
