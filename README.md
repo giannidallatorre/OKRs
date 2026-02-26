@@ -46,6 +46,16 @@ we will have to create a **Google Service Account**.
 * Copy the JSON file to your code directory and rename it to `credentials.json`
 * Grant **Edit** rights to the **Service Account** in the Google Spread-sheet
 
+## Creating a Confluence Personal Access Token (PAT)
+
+To fetch data from Confluence, you must generate a Personal Access Token (PAT) with an account that has read access to the IMS (Integrated Management System) space.
+
+**Instructions**:
+1.  Go to: [Confluence Personal Access Tokens](https://confluence.egi.eu/plugins/personalaccesstokens/usertokens.action)
+2.  Click on **Create token**
+3.  Give it a name (e.g., `egi-automation`) and set the desired expiry
+4.  Copy the generated token and store it securely
+
 ## Configuring the environment
 
 Use virtualenv to configure the working environment:
@@ -107,6 +117,8 @@ Go to **Settings > Secrets and variables > Actions > Secrets** and add:
 - `SERVICE_ACCOUNT_JSON`: The entire content of your `service_account.json` file.
 - `JIRA_AUTH_TOKEN`: Your Jira API token.
 - `OPERATIONS_API_KEY`: Your EGI Operations Portal API key.
+- `CONFLUENCE_AUTH_TOKEN`: Your Confluence Personal Access Token (PAT).
+- `CONFLUENCE_SERVER_URL`: `https://confluence.egi.eu/`
 
 ### 2. GitHub Variables
 Go to **Settings > Secrets and variables > Actions > Variables** and add:
@@ -159,6 +171,7 @@ The system distinguishes between **Production** and **Test** environments via th
 * [Google Developer Console](https://console.cloud.google.com/apis/dashboard)
 * [Generate an API Token for the EGI Operations Portal](https://operations-portal.egi.eu/api-documentation)
 * [Generate an API Token for the EGI Jira Portal](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/)
+* [Generate a PAT for the EGI Confluence Portal](https://confluence.egi.eu/plugins/personalaccesstokens/usertokens.action)
 
 ## EGI services
 
