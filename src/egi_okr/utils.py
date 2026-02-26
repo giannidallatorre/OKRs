@@ -726,6 +726,7 @@ def _parse_confluence_customer_page(html_body):
     try:
         from bs4 import BeautifulSoup
     except ImportError:
+        print(colourise("yellow", "[WARN]"), "BeautifulSoup (bs4) not installed. Confluence SLA parsing skipped.")
         return None, None
 
     soup = BeautifulSoup(html_body, "html.parser")
