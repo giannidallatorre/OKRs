@@ -91,13 +91,21 @@ The project includes a modern CLI powered by **Typer**. It allows you to run acc
 
 ### Usage
 
-You can run the CLI using one of the following methods:
+Before running the CLI, ensure you have the project dependencies installed. It is highly recommended to install the project in **editable mode** so the `egi-okr` command is available everywhere and modules are correctly resolved:
 
 ```bash
-# Option 1: Using the installed script (if installed via pip)
-egi-okr --help
+# Recommended: Install in editable mode
+pip install -e .
 
-# Option 2: Using the module path
+# Now you can use the command directly
+egi-okr --help
+```
+
+Alternatively, if you prefer to run it without installation, you must set the `PYTHONPATH` to include the `src/` directory:
+
+```bash
+# Running directly from source
+export PYTHONPATH=src
 python3 -m egi_okr.cli --help
 ```
 
