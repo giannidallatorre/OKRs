@@ -28,28 +28,37 @@ class SLAsAccounting(BaseAccounting):
         super().__init__(env)
 
     def fetch_active_slas(self):
-        """Fetch active SLAs from Spreadsheet OR API fallback."""
-        vos = []
-        try:
-             mock_env = self.env.copy()
-             mock_env['GOOGLE_SHEET_NAME'] = self.env.get('GOOGLE_SLAs_SHEET_NAME', self.env.get('GOOGLE_SHEET_NAME'))
-             sla_ws = self.init_worksheet('GOOGLE_SLAs_WORKSHEET')
-             if sla_ws:
-                 values = sla_ws.get_all_values()
-                 for value in values[1:]:
-                     if len(value) > 16 and value[6] == "FINALIZED":
-                         vo_name = value[10]
-                         sla_type = "cloud" if value[16].upper() == "TRUE" else "htc"
-                         if sla_type in self.env.get('ACCOUNTING_SCOPE', ''):
-                             vos.append({"Customer": value[0], "Name": vo_name, "CPU/h": 0, "Type": sla_type})
-        except Exception as e:
-             print(colourise("yellow", "[WARN]"), f"Failed to read SLA sheet: {e}")
+        """
+        Fetch the list of VOs with FINALIZED SLA status.
 
-        if not vos:
-            print(colourise("yellow", "[INFO]"), "Fetching VOs from API as SLA fallback...")
-            from .operations import get_VOs_stats
-            vos = [{"Name": v['name'], "CPU/h": 0} for v in get_VOs_stats(self.env)]
-        return vos
+        Priority:
+          1. Confluence IMS Customer database (CONFLUENCE_AUTH_TOKEN configured)
+          2. Operations Portal API (OPERATIONS_API_KEY configured)
+          3. Local fallback list (get_sla_vos_list)
+        """
+        # --- 1. Confluence (authoritative source) ---
+        from .utils import get_confluence_sla_vos
+        confluence_vos = get_confluence_sla_vos(self.env)
+        if confluence_vos:
+            print(colourise("green", "[INFO]"), f"Using {len(confluence_vos)} FINALIZED SLA VOs from Confluence")
+            return [{"Name": vo, "CPU/h": 0, "Type": self.env.get('ACCOUNTING_SCOPE', 'cloud')}
+                    for vo in confluence_vos]
+
+        # --- 2. Operations Portal API (fallback) ---
+        print(colourise("cyan", "[INFO]"), "Confluence not configured, trying Operations Portal API...")
+        from .operations import get_VOs_stats
+        vos = get_VOs_stats(self.env)
+        if vos:
+            print(colourise("green", "[SUCCESS]"), f"Fetched {len(vos)} VOs from Operations Portal API")
+            return [{"Name": v['name'], "CPU/h": 0, "Type": self.env.get('ACCOUNTING_SCOPE', 'cloud')}
+                    for v in vos]
+
+        # --- 3. Local fallback list ---
+        print(colourise("yellow", "[WARN]"), "API returned no VOs, using local fallback list...")
+        from .utils import get_sla_vos_list
+        vos_list = get_sla_vos_list(self.env)
+        return [{"Name": vo, "CPU/h": 0, "Type": self.env.get('ACCOUNTING_SCOPE', 'cloud')}
+                for vo in vos_list]
 
     def fetch_vo_accounting(self, vo_name):
         """Fetch accounting for a single VO using the custom selector (ensures coverage)."""
@@ -89,7 +98,19 @@ class SLAsAccounting(BaseAccounting):
     def run(self, dry_run=False):
         scope = self.env.get('ACCOUNTING_SCOPE', '')
         print(f"\n[*] Module: SLA-{scope.upper()}")
-        
+        # Ensure the SLAs reference sheet (VO list) exists and is initialized.
+        # This populates the `SLAs` worksheet with the configured VO list so
+        # downstream accounting runs have the reference data available.
+        try:
+            from .utils import initialize_slas_sheet
+            ref_ws = self.init_worksheet('GOOGLE_SLAs_WORKSHEET')
+            if ref_ws:
+                initialize_slas_sheet(ref_ws, self.env)
+        except Exception:
+            # Do not fail the whole run if reference initialization errors;
+            # accounting should proceed using API/fallback lists.
+            pass
+
         ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET' if 'cloud' in scope else 'GOOGLE_SLAs_HTC_WORKSHEET'
         worksheet = self.init_worksheet(ws_key)
         
@@ -166,6 +187,16 @@ class SLAsAccounting(BaseAccounting):
             print(f"\tUpdating {len(cells_to_update)} SLA records...")
             worksheet.update_cells(cells_to_update, value_input_option='RAW')
             self.update_timestamp(worksheet)
+
+        # Sync SLAs sheet to show filtered report data (only SLA VOs)
+        try:
+            from .utils import sync_slas_sheet_from_report
+            if worksheet and self.env.get('ACCOUNTING_SCOPE') == 'cloud':
+                # After CloudReport is populated, sync to SLAs sheet (filter by SLA VOs)
+                sync_slas_sheet_from_report(self.env.get('_ref_ws') or self.init_worksheet('GOOGLE_SLAs_WORKSHEET'), worksheet)
+        except Exception:
+            # Sync is best-effort; don't abort if it fails
+            pass
 
 if __name__ == "__main__":
     SLAsAccounting().run()

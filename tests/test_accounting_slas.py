@@ -22,40 +22,28 @@ class TestSLAsAccounting(unittest.TestCase):
         }
         self.app = SLAsAccounting(self.env)
 
-    @patch('egi_okr.base_accounting.init_GWorkSheet')
-    def test_fetch_active_slas(self, mock_init):
-        mock_ws = MagicMock()
-        mock_init.return_value = mock_ws
-        
-        # Row 10: vo.test, Row 16: TRUE
-        row = [''] * 20
-        row[6] = "FINALIZED"
-        row[10] = "vo.test"
-        row[16] = "TRUE"
-        mock_ws.get_all_values.return_value = [['H']*20, row]
+    @patch('egi_okr.operations.get_VOs_stats')
+    def test_fetch_active_slas(self, mock_get_vos):
+        # Mock API response
+        mock_get_vos.return_value = [{'name': 'vo.test'}]
         
         slas = self.app.fetch_active_slas()
         self.assertEqual(len(slas), 1)
         self.assertEqual(slas[0]['Name'], "vo.test")
 
+    @patch('egi_okr.operations.get_VOs_stats')
     @patch('requests.Session.get')
     @patch('egi_okr.base_accounting.init_GWorkSheet')
-    def test_run_flow(self, mock_init, mock_get):
+    def test_run_flow(self, mock_init, mock_get, mock_get_vos):
         # 1. Mock Sheets
         mock_target_ws = MagicMock()
-        mock_sla_source_ws = MagicMock()
-        mock_init.side_effect = [mock_target_ws, mock_sla_source_ws]
+        mock_init.return_value = mock_target_ws
         
-        # 2. Mock Source Data (SLA sheet)
-        row = [''] * 20
-        row[0] = "Customer X"
-        row[6] = "FINALIZED"
-        row[10] = "vo.test"
-        row[16] = "TRUE"
-        mock_sla_source_ws.get_all_values.return_value = [['H']*20, row]
+        # 2. Mock API call to get VOs
+        mock_get_vos.return_value = [{'name': 'vo.test'}]
         
         # 3. Mock Target Sheet (Results sheet)
-        mock_target_ws.get_all_values.return_value = [['VO', '2023.10-12']]
+        mock_target_ws.get_all_values.return_value = [['VO', '2024.01-03']]
         
         # 4. Mock API (Individual VO fetch via session)
         mock_resp = MagicMock()
@@ -71,9 +59,10 @@ class TestSLAsAccounting(unittest.TestCase):
         cells = mock_target_ws.update_cells.call_args[0][0]
         self.assertEqual(cells[0].value, 123)
 
+    @patch('egi_okr.operations.get_VOs_stats')
     @patch('requests.Session.get')
     @patch('egi_okr.base_accounting.init_GWorkSheet')
-    def test_header_initialization_with_existing_data_regression(self, mock_init, mock_get):
+    def test_header_initialization_with_existing_data_regression(self, mock_init, mock_get, mock_get_vos):
         """
         Regression test: Verify that when headers are initialized, 
         existing VOs are correctly identified and updated (not re-inserted).
@@ -84,16 +73,10 @@ class TestSLAsAccounting(unittest.TestCase):
         """
         # 1. Mock Sheets
         mock_target_ws = MagicMock()
-        mock_sla_source_ws = MagicMock()
-        mock_init.side_effect = [mock_target_ws, mock_sla_source_ws]
+        mock_init.return_value = mock_target_ws
         
-        # 2. Mock Source Data (SLA sheet)
-        row = [''] * 20
-        row[0] = "Customer X"
-        row[6] = "FINALIZED"
-        row[10] = "vo.test"
-        row[16] = "TRUE"
-        mock_sla_source_ws.get_all_values.return_value = [['H']*20, row]
+        # 2. Mock API call to get VOs
+        mock_get_vos.return_value = [{'name': 'vo.test'}]
         
         # 3. Mock Target Sheet - SIMULATE EMPTY HEADER (needs initialization)
         # First call returns empty sheet, simulating new sheet
@@ -134,9 +117,10 @@ class TestSLAsAccounting(unittest.TestCase):
         # 4. Verify that the value is the new CPU value (not empty/None)
         self.assertEqual(cells[0].value, 789, "CPU value should be updated with API data")
 
+    @patch('egi_okr.operations.get_VOs_stats')
     @patch('requests.Session.get')
     @patch('egi_okr.base_accounting.init_GWorkSheet')
-    def test_slas_data_not_empty_regression(self, mock_init, mock_get):
+    def test_slas_data_not_empty_regression(self, mock_init, mock_get, mock_get_vos):
         """
         Regression test: Ensure SLAs module always reports data when VOs exist.
         
@@ -150,23 +134,10 @@ class TestSLAsAccounting(unittest.TestCase):
         """
         # 1. Mock sheets
         mock_target_ws = MagicMock()
-        mock_sla_source_ws = MagicMock()
-        mock_init.side_effect = [mock_target_ws, mock_sla_source_ws]
+        mock_init.return_value = mock_target_ws
         
-        # 2. Mock source with multiple VOs
-        row1 = [''] * 20
-        row1[0] = "Customer A"
-        row1[6] = "FINALIZED"
-        row1[10] = "vo.alice"
-        row1[16] = "TRUE"
-        
-        row2 = [''] * 20
-        row2[0] = "Customer B"
-        row2[6] = "FINALIZED"
-        row2[10] = "vo.bob"
-        row2[16] = "TRUE"
-        
-        mock_sla_source_ws.get_all_values.return_value = [['H']*20, row1, row2]
+        # 2. Mock API with multiple VOs
+        mock_get_vos.return_value = [{'name': 'vo.alice'}, {'name': 'vo.bob'}]
         
         # 3. Mock target sheet with headers already in place
         mock_target_ws.get_all_values.return_value = [['VO', '2024.01-03']]
