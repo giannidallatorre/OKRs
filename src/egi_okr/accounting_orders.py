@@ -64,9 +64,12 @@ class OrdersAccounting(BaseAccounting):
         orders = get_service_orders(self.env, session=self.session)
         buckets = self.process_orders(orders)
         
-        if dry_run:
-            status = "(No Worksheet)" if not worksheet else ""
-            print(f"\tSummary: {len(orders)} orders processed into {len(buckets)} buckets. {status}")
+        if dry_run or self.print_mode:
+            status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+            print(colourise("green", f"\t{status}: {len(orders)} orders processed into {len(buckets)} buckets."))
+            if self.print_mode:
+                for name, count in buckets.items():
+                    print(f"\t  - {name}: {count}")
             return
 
         if not worksheet:

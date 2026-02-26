@@ -77,8 +77,17 @@ class UsersAccounting(BaseAccounting):
     def run_vo_reports_logic(self, dry_run=False):
         """Unified logic from legacy vo_reports.py - Created/Deleted VO counts."""
         worksheet = self.init_worksheet('GOOGLE_VOS_REPORT_WORKSHEET')
-        if not worksheet: return
+        
+        vos_report = get_VOs_report(self.env, session=self.session)
+        if dry_run or self.print_mode:
+            status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+            print(colourise("green", f"\t{status}: Fetched Created/Deleted reports for {len(vos_report)} status types."))
+            if self.print_mode:
+                for r in vos_report:
+                    print(f"\t  - {r.get('status', 'Unknown')}: {r.get('count', 0)} ({r.get('vos', '-')})")
+            return
 
+        if not worksheet: return
         # Ensure proper headers
         all_rows = worksheet.get_all_values()
         headers = all_rows[0] if all_rows else []
@@ -89,11 +98,6 @@ class UsersAccounting(BaseAccounting):
 
         # Apply uniform formatting
         self.apply_standard_formatting(worksheet)
-
-        vos_report = get_VOs_report(self.env, session=self.session)
-        if dry_run:
-            print(colourise("yellow", "[DRY-RUN]"), f"Fetched Created/Deleted reports for {len(vos_report)} status types.")
-            return
 
         # Legacy logic: row-based period reports (A=Period, B=Total, C=Deleted, D=Prod, E=VO List)
         total = sum([int(i['count']) for i in vos_report])
@@ -123,8 +127,17 @@ class UsersAccounting(BaseAccounting):
         # Always fetch stats for reporting/dry-run
         vos_stats = get_VOs_stats(self.env, session=self.session)
         
-        if dry_run:
-            print(colourise("yellow", "[DRY-RUN]"), f"Fetched stats for {len(vos_stats)} VOs.")
+        if dry_run or self.print_mode:
+            status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+            print(colourise("green", f"\t{status}: Fetched stats for {len(vos_stats)} VOs."))
+            if self.print_mode:
+                # Show top 5 or just a summary? Let's show a summary and list them if short
+                total_reg = sum(v.get('active_members', 0) for v in vos_stats)
+                print(f"\tTotal Registered Members: {total_reg}")
+                # List first 10 VOs as example
+                print("\tVO breakdown (sample):")
+                for v in vos_stats[:10]:
+                    print(f"\t  - {v['name']}: {v.get('users', 0)} active / {v.get('active_members', 0)} registered")
         else:
             # 1. Active Users sheet (users per period)
             worksheet_active = self.init_worksheet('GOOGLE_VOS_WORKSHEET')

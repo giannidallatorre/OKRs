@@ -10,6 +10,7 @@ class BaseAccounting:
         self.env = env if env is not None else get_env_settings()
         self.accounting_period = format_reporting_period(self.env)
         self.log_level = self.env.get('LOG', 'INFO')
+        self.print_mode = self.env.get('PRINT_MODE', 'False') == 'True'
         
         # Connection reuse: use provided session (for backfills) or create new one
         self.session = self.env.get('_requests_session')
@@ -17,7 +18,10 @@ class BaseAccounting:
             self.session = requests.Session()
 
     def init_worksheet(self, worksheet_env_key):
-        """Initialize and return a GWorkSheet, or None on failure."""
+        """Initialize and return a GWorkSheet, or None on failure/print mode."""
+        if self.print_mode:
+            return None
+            
         if self.accounting_period in ["UNKNOWN_PERIOD", "INVALID_PERIOD"]:
             return None
             

@@ -89,9 +89,13 @@ class CPUAccounting(BaseAccounting):
         data = self.fetch_accounting_data()
         summary = self.process_accounting_data(data)
 
-        if dry_run:
-            status = "(No Worksheet)" if not worksheet else ""
-            print(f"\tSummary: {summary['total_cpu']} CPU/h across {summary['total']} VOs {status}")
+        if dry_run or self.print_mode:
+            status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+            print(colourise("green", f"\t{status}: {summary['total_cpu']} CPU/h across {summary['total']} VOs"))
+            if self.print_mode:
+                print(f"\tActive VOs: {', '.join(summary['VOs'])}")
+                if summary['noVOs']:
+                    print(f"\tVOs with NO accounting: {', '.join(summary['noVOs'])}")
             return
             
         if not worksheet:

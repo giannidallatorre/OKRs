@@ -13,8 +13,13 @@ dependencies = [
     "gspread>=6.1.2",
     "requests>=2.32.3",
     "google-auth>=2.23.4",
+    "beautifulsoup4>=4.12.2",
+    "typer>=0.12.3"
 ]
 requires-python = ">=3.10"
+
+[project.scripts]
+egi-okr = "egi_okr.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

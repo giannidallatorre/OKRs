@@ -134,9 +134,12 @@ class SLAsAccounting(BaseAccounting):
                 except Exception as e:
                     vo_data.append((vo_name, 0))
 
-        if dry_run:
-            status = "(No Worksheet)" if not worksheet else ""
-            print(f"\tSummary: {total_cpu} CPU/h across {len(vos)} SLAs {status}")
+        if dry_run or self.print_mode:
+            status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+            print(colourise("green", f"\t{status}: {total_cpu} CPU/h across {len(vos)} SLAs"))
+            if self.print_mode:
+                for name, cpu in sorted(vo_data):
+                    print(f"\t  - {name}: {cpu}")
             return
             
         if not worksheet:
