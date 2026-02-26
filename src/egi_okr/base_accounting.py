@@ -120,6 +120,88 @@ class BaseAccounting:
         except:
             pass
 
+    def update_worksheet_data(self, worksheet, row_labels, data_map, first_col_label="Metric", start_row=2, period_col=None):
+        """
+        Centralized 'Read-Once, Write-Batch' logic for per-worksheet updates.
+        
+        Args:
+            worksheet: GSpread worksheet object.
+            row_labels: List of strings for Column A labels (if they need initialization).
+            data_map: Dict of {label: value} to write to the period column.
+            first_col_label: Header for Column A.
+            start_row: Row where data begins.
+            period_col: Optional pre-calculated period column index.
+            
+        Returns:
+            int: The period column index used.
+        """
+        if not worksheet:
+            return None
+
+        # 1. READ ONCE
+        all_values = worksheet.get_all_values()
+        headers = all_values[0] if all_values else []
+        existing_labels = [r[0] if r else "" for r in all_values]
+
+        # 2. Initialize Headers/Labels if needed
+        if not headers or (first_col_label and first_col_label not in headers[0]):
+            print(f"\tInitializing worksheet headers for '{worksheet.title}'...")
+            worksheet.update('A1', [[first_col_label]], value_input_option='RAW')
+            if row_labels:
+                worksheet.update(f'A{start_row}:A{start_row + len(row_labels) - 1}', 
+                                [[l] for l in row_labels], value_input_option='RAW')
+            # Refresh local handles after init
+            all_values = worksheet.get_all_values()
+            headers = [first_col_label]
+            existing_labels = [first_col_label] + row_labels
+
+        # 3. Apply standard formatting (Singleton-ish: once per run)
+        self.apply_standard_formatting(worksheet)
+
+        # 4. Find or Create Period Column
+        if period_col is None:
+            period_col = self.get_period_column(worksheet, headers=headers)
+
+        # 5. Prepare Batch Updates
+        cells_to_update = []
+        
+        # Track if we need to insert any NEW rows (labels not in existing_labels)
+        new_items = []
+        for label, value in data_map.items():
+            if label in existing_labels:
+                row_idx = existing_labels.index(label) + 1
+                cells_to_update.append(gspread.Cell(row_idx, period_col, value))
+            else:
+                new_items.append((label, value))
+
+        # 6. Handle New Items (Insert and Sort)
+        if new_items:
+            new_items.sort(key=lambda x: x[0])
+            for label, value in new_items:
+                # Find insertion row
+                row_idx = self.get_item_row(worksheet, label, start_row=start_row, all_values=all_values)
+                print(f"\tInserting new label '{label}' at row {row_idx}")
+                worksheet.insert_row([label], index=row_idx)
+                # We must update local existing_labels to track indices for subsequent cells in this batch
+                existing_labels.insert(row_idx - 1, label)
+                # Re-calculate all_values if we wanted to be perfectly accurate for subsequent insertions,
+                # but for simplicity we rely on index tracking.
+                cells_to_update.append(gspread.Cell(row_idx, period_col, value))
+
+        # 7. WRITE BATCH
+        if cells_to_update:
+            print(f"\tPerforming batch update of {len(cells_to_update)} cells in '{worksheet.title}'...")
+            worksheet.update_cells(cells_to_update, value_input_option='RAW')
+            self.update_timestamp(worksheet)
+
+        # 8. Defensive Delay (Per-Worksheet)
+        import time
+        write_delay = int(self.env.get('WRITE_DELAY', 1))
+        if write_delay > 0:
+            time.sleep(write_delay)
+
+        return period_col
+
     def run(self, dry_run=False):
         """Common run loop wrapper."""
         raise NotImplementedError("Subclasses must implement run()")

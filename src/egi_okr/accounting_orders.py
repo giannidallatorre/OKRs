@@ -76,30 +76,14 @@ class OrdersAccounting(BaseAccounting):
             print(colourise("red", "[ABORT]"), "Orders Worksheet not found.")
             return
 
-        # Setup Orientation (Single Read)
-        all_values = worksheet.get_all_values()
-        headers = all_values[0] if all_values else []
-        
-        # Ensure A1 has sensible header
-        if not headers or not headers[0]:
-            print(f"\tInitializing worksheet header...")
-            worksheet.update('A1', [['Service']], value_input_option='RAW')
-            headers = ['Service']
-        
-        # Apply uniform formatting
-        self.apply_standard_formatting(worksheet)
-        
-        period_col = self.get_period_column(worksheet, headers=headers)
-        
-        cells = []
-        for i, (name, count) in enumerate(buckets.items()):
-            row = i + 2
-            cells.append(gspread.Cell(row, 1, name))
-            cells.append(gspread.Cell(row, period_col, count))
-
-        print(f"\tPerforming batch update for {len(cells)} service cells...")
-        worksheet.update_cells(cells, value_input_option='RAW')
-        self.update_timestamp(worksheet)
+        # 2. Setup Data for Centralized Update
+        print(f"\tUpdating worksheet '{worksheet.title}'...")
+        self.update_worksheet_data(
+            worksheet,
+            row_labels=list(buckets.keys()),
+            data_map=buckets,
+            first_col_label="Service"
+        )
 
 if __name__ == "__main__":
     OrdersAccounting().run()

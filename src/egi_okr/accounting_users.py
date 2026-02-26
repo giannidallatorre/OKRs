@@ -28,51 +28,16 @@ class UsersAccounting(BaseAccounting):
 
     def process_metric_sheet(self, worksheet, vos_list, metric_key, metric_name):
         """Generic method to process a metric sheet (active users, registered, or total)."""
-        # 1. Fetch bulk data once
-        all_rows = worksheet.get_all_values()
-        headers = all_rows[0] if all_rows else []
-        existing_names = [r[0] if r else "" for r in all_rows]
+        data_map = {vo['name']: vo.get(metric_key, 0) for vo in vos_list}
         
-        # Ensure A1 has sensible header if empty
-        if not headers or not headers[0]:
-            print(f"\tInitializing {metric_name} sheet header...")
-            worksheet.update('A1', [['VO']], value_input_option='RAW')
-            headers = ['VO']
-            all_rows = worksheet.get_all_values()
-            existing_names = [r[0] if r else "" for r in all_rows]
-        
-        # 2. Find or create period column
-        period_col = self.get_period_column(worksheet, headers=headers)
-        
-        cells_to_update = []
-        remaining_vos = []
-
-        # 3. Update existing VOs
-        for vo in vos_list:
-            name = vo['name']
-            metric_value = vo.get(metric_key, 0)
-            
-            if name in existing_names:
-                row_idx = existing_names.index(name) + 1
-                cells_to_update.append(gspread.Cell(row_idx, period_col, metric_value))
-            else:
-                remaining_vos.append((name, metric_value))
-
-        # 4. Batch insert new VOs
-        if remaining_vos:
-            remaining_vos.sort(key=lambda x: x[0])
-            start_row = self.get_item_row(worksheet, remaining_vos[0][0], start_row=2, all_values=all_rows)
-            
-            print(f"\tInserting {len(remaining_vos)} new VOs into {metric_name} sheet at row {start_row}...")
-            worksheet.insert_rows([[vo[0]] for vo in remaining_vos], row=start_row)
-            
-            for i, (name, value) in enumerate(remaining_vos):
-                row = start_row + i
-                cells_to_update.append(gspread.Cell(row, period_col, value))
-
-        if cells_to_update:
-            print(f"\tPerforming batch update of {len(cells_to_update)} cells in {metric_name} sheet...")
-            worksheet.update_cells(cells_to_update, value_input_option='RAW')
+        print(colourise("cyan", f"\n[INFO] Processing VOs - {metric_name} sheet..."))
+        self.update_worksheet_data(
+            worksheet,
+            row_labels=[], # VOs are added dynamically by update_worksheet_data
+            data_map=data_map,
+            first_col_label="VO",
+            start_row=2
+        )
 
     def run_vo_reports_logic(self, dry_run=False):
         """Unified logic from legacy vo_reports.py - Created/Deleted VO counts."""
@@ -131,41 +96,30 @@ class UsersAccounting(BaseAccounting):
             status = "(Print Mode)" if self.print_mode else "(Dry Run)"
             print(colourise("green", f"\t{status}: Fetched stats for {len(vos_stats)} VOs."))
             if self.print_mode:
-                # Show top 5 or just a summary? Let's show a summary and list them if short
                 total_reg = sum(int(v.get('active_members', 0) or 0) for v in vos_stats)
                 print(f"\tTotal Registered Members: {total_reg}")
-                # List first 10 VOs as example
                 print("\tVO breakdown (sample):")
                 for v in vos_stats[:10]:
                     print(f"\t  - {v['name']}: {v.get('users', 0)} active / {v.get('active_members', 0)} registered")
         else:
-            # 1. Active Users sheet (users per period)
+            # 1. Active Users sheet
             worksheet_active = self.init_worksheet('GOOGLE_VOS_WORKSHEET')
             if worksheet_active:
-                print(colourise("cyan", "\n[INFO]"), "Processing VOs - Active Users sheet...")
-                self.apply_standard_formatting(worksheet_active)
                 self.process_metric_sheet(worksheet_active, vos_stats, 'users', 'Active Users')
-                self.update_timestamp(worksheet_active)
             else:
                 print(colourise("red", "[ABORT]"), "VOs Worksheet not found. Skipping active users.")
 
-            # 2. Registered Users sheet (active_members per period)
+            # 2. Registered Users sheet
             worksheet_registered = self.init_worksheet('GOOGLE_VOS_REGISTERED_WORKSHEET')
             if worksheet_registered:
-                print(colourise("cyan", "\n[INFO]"), "Processing VOs - Registered Users sheet...")
-                self.apply_standard_formatting(worksheet_registered)
                 self.process_metric_sheet(worksheet_registered, vos_stats, 'active_members', 'Registered Users')
-                self.update_timestamp(worksheet_registered)
             else:
                 print(colourise("yellow", "[WARN]"), "VOs-Registered Worksheet not found. Skipping registered users.")
 
-            # 3. Total Users sheet (total_members per period)
+            # 3. Total Users sheet
             worksheet_total = self.init_worksheet('GOOGLE_VOS_TOTAL_WORKSHEET')
             if worksheet_total:
-                print(colourise("cyan", "\n[INFO]"), "Processing VOs - Total Users sheet...")
-                self.apply_standard_formatting(worksheet_total)
                 self.process_metric_sheet(worksheet_total, vos_stats, 'total_members', 'Total Users')
-                self.update_timestamp(worksheet_total)
             else:
                 print(colourise("yellow", "[WARN]"), "VOs-Total Worksheet not found. Skipping total users.")
 

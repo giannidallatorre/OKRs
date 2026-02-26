@@ -102,39 +102,44 @@ class CPUAccounting(BaseAccounting):
             print(colourise("red", "[ABORT]"), f"Worksheet {worksheet_key} not found.")
             return
 
-        # 1. Setup & Orientation (Single Read)
+        # 1. Setup Data for Centralized Update
+        labels = ["CPU/h", "#VOs with accounting", "List of active VOs", "#VOs without accounting", "VOs with *NO* accounting", "VOs variations", "Follow-up actions"]
+        
+        # 2. Diff Logic (Requires a quick look at existing data for variations)
+        # We can pass a pre-read all_values if we want, but update_worksheet_data handles it internally.
+        # To calculate variations, we need the previous period's VO list.
         all_values = worksheet.get_all_values()
         headers = all_values[0] if all_values else []
-        
-        labels = ["Metric", "CPU/h", "#VOs with accounting", "List of active VOs", "#VOs without accounting", "VOs with *NO* accounting", "VOs variations", "Follow-up actions"]
-        if not headers or labels[0] not in headers[0]:
-            print(f"\tInitializing worksheet labels...")
-            worksheet.update('A1', [[l] for l in labels], value_input_option='RAW')
-            # If we just wrote A1:A8, headers is still [labels[0]] in effect for row 1
-            headers = [labels[0]]
-        
-        # Apply uniform formatting
-        self.apply_standard_formatting(worksheet)
-        
         period_col = self.get_period_column(worksheet, headers=headers)
-
-        # 2. Diff Logic (Reuse all_values)
-        result = '-'
+        
+        variations = '-'
         if period_col > 2 and len(all_values) >= 4:
             try:
                 # Row 4 (index 3) is "List of active VOs"
                 prev_vos = all_values[3][period_col - 2] if len(all_values[3]) >= (period_col - 1) else ""
                 new_vo, left_vo = find_difference(prev_vos, ', '.join(summary["VOs"]))
-                result = f"APPEARED: {new_vo}\nDISAPPEARED: {left_vo}"
+                variations = f"APPEARED: {new_vo}\nDISAPPEARED: {left_vo}"
             except: pass
 
-        # 3. Write
-        col_values = [[summary["total_cpu"]], [summary["total"]], [', '.join(summary["VOs"]) or '-'], [len(summary["noVOs"])], [', '.join(summary["noVOs"]) or '-'], [result], ['-']]
-        col_letter = gspread.utils.rowcol_to_a1(1, period_col)[:-1]
-        
-        print(f"\tWriting data to column {col_letter}...")
-        worksheet.update(f"{col_letter}2:{col_letter}8", col_values, value_input_option='RAW')
-        self.update_timestamp(worksheet)
+        data_map = {
+            "CPU/h": summary["total_cpu"],
+            "#VOs with accounting": summary["total"],
+            "List of active VOs": ', '.join(summary["VOs"]) or '-',
+            "#VOs without accounting": len(summary["noVOs"]),
+            "VOs with *NO* accounting": ', '.join(summary["noVOs"]) or '-',
+            "VOs variations": variations,
+            "Follow-up actions": '-'
+        }
+
+        # 3. Centralized Update
+        print(f"\tUpdating worksheet '{worksheet.title}'...")
+        self.update_worksheet_data(
+            worksheet, 
+            row_labels=labels, 
+            data_map=data_map, 
+            first_col_label="Metric",
+            period_col=period_col
+        )
 
 if __name__ == "__main__":
     CPUAccounting().run()
