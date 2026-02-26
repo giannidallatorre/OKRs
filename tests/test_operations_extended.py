@@ -39,8 +39,9 @@ class TestOperationsExtended(unittest.TestCase):
         }
         mock_get.return_value = mock_api_response
         
-        # 2. Mock VO user fetch
-        with patch('egi_okr.operations.get_VO_users', return_value="10"), \
+        # 2. Mock VO period members and user fetch
+        with patch('egi_okr.operations.get_VO_period_members', return_value=("5", "10")), \
+             patch('egi_okr.operations.get_VO_users', return_value="10"), \
              patch('egi_okr.operations.get_VO_metadata', return_value=("st", "url", 1)):
             
             # First call: No cache exists

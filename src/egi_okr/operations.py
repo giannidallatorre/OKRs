@@ -145,57 +145,6 @@ def get_VO_metadata(index, env, vo_name, session=None):
     return statement, publicationsURL, index
 
 
-def get_VO_stats(env, vo, session=None):
-    '''
-       Returns the statistics of the production VO with minimal information
-    '''
-    if session is None: session = requests
-    headers = get_operations_headers(env)
-
-    _url = f"{env['OPERATIONS_SERVER_URL']}{env['OPERATIONS_VO_LIST_PREFIX']}"
-    params = {
-        "format": env.get('OPERATIONS_FORMAT', 'json')
-    }
-
-    verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
-    try:
-        curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
-        curl.raise_for_status()
-        response = curl.json()
-    except Exception as e:
-        if env.get('LOG') == "DEBUG":
-            print(colourise("red", "[ERROR]"), f"API failure: {e}")
-        return []
-
-    vo_stats = []
-    index = 0
-
-    if response:
-        for details in response.get('data', []):
-            if vo in details['name']:
-               statement, publicationsURL, index = get_VO_metadata(index, env, details['name'], session=session) 
-              
-               members = details.get('members', "0")
-               if members == "0.0": members = "0"
-               
-               membersTotal = details.get('membersTotal', "0")
-               if membersTotal == "0.0": membersTotal = "0"
-
-               vo_stats.append(
-                    {"name": details['name'],
-                     "scope": details['scope'],
-                     "url": details['homeUrl'],
-                     "users": get_VO_users(env, details['name'], session=session), 
-                     "active_members": members,
-                     "total_members" : membersTotal, 
-                     "acknowledgement": statement,
-                     "publicationsURL": publicationsURL})
-
-            index = index + 1 
-
-    return vo_stats
-
-
 def get_VOs_stats(env, session=None):
     '''
        Returns the list of productions VOs with minimal information
@@ -244,18 +193,16 @@ def get_VOs_stats(env, session=None):
         
         def fetch_worker(index, details):
             statement, publicationsURL, _ = get_VO_metadata(index, env, details['name'], session=session)
-            members = details.get('members', "0")
-            if members == "0.0": members = "0"
-            membersTotal = details.get('membersTotal', "0")
-            if membersTotal == "0.0": membersTotal = "0"
+            # Fetch period-specific member counts (not current snapshot values)
+            active_members, total_members = get_VO_period_members(env, details['name'], session=session)
             
             return {
                   "name": details['name'],
                   "scope": details['scope'],
                   "url": details['homeUrl'],
                   "users": get_VO_users(env, details['name'], session=session),    
-                  "active_members": members, 
-                  "total_members" : membersTotal, 
+                  "active_members": active_members, 
+                  "total_members": total_members, 
                   "acknowledgement": statement or "N/A",
                   "publicationsURL": publicationsURL or "N/A"
             }
@@ -280,6 +227,64 @@ def get_VOs_stats(env, session=None):
     return vo_details
 
 
+def get_VO_period_members(env, vo_name, session=None):
+    '''
+       Returns period-specific active and total members for a VO.
+       Aggregates the max values across the reporting period (more representative of actual usage).
+       Uses the egi-reports/vo-users endpoint which provides daily/periodic snapshots.
+    '''
+    if session is None: 
+        session = requests
+    
+    headers = get_operations_headers(env)
+    
+    start = (env['DATE_FROM'].replace("/", "-")) + "-01"
+    end = (env['DATE_TO'].replace("/", "-")) + "-01"
+    
+    _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo-users"
+    params = {
+        "vo_name": vo_name,
+        "start_date": start,
+        "end_date": end,
+        "format": env.get('OPERATIONS_FORMAT', 'json')
+    }
+    
+    verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
+    active_members_list = []
+    total_members_list = []
+    
+    try:
+        curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
+        curl.raise_for_status()
+        response = curl.json()
+        
+        if response and isinstance(response, dict):
+            # Collect all data points across the period
+            if 'users' in response and isinstance(response['users'], list):
+                for user_data in response['users']:
+                    if user_data.get('vo') == vo_name or vo_name in str(user_data.get('vo', '')):
+                        # Try to get numeric values
+                        try:
+                            active_val = int(user_data.get('registered', user_data.get('active', 0)))
+                            total_val = int(user_data.get('total', 0))
+                            active_members_list.append(active_val)
+                            total_members_list.append(total_val)
+                        except (ValueError, TypeError):
+                            pass
+        
+        # Use max value from period (representative of peak usage/actual member count)
+        active_members = str(max(active_members_list)) if active_members_list else "0"
+        total_members = str(max(total_members_list)) if total_members_list else "0"
+        
+    except Exception as e:
+        if env.get('LOG') == "DEBUG":
+            print(colourise("yellow", "[WARN]"), f"Failed to fetch period members for {vo_name}: {e}")
+        active_members = "0"
+        total_members = "0"
+    
+    return active_members, total_members
+
+
 def get_VO_users(env, vo, session=None):
     '''
        Returns the num. of users of the production VO in the specific period
@@ -288,15 +293,25 @@ def get_VO_users(env, vo, session=None):
     headers = get_operations_headers(env)
 
     _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo-users"
-    # ...
+    
+    start = (env['DATE_FROM'].replace("/", "-")) + "-01"
+    end = (env['DATE_TO'].replace("/", "-")) + "-01"
+    
+    params = {
+        "vo_name": vo,
+        "start_date": start,
+        "end_date": end,
+        "format": env.get('OPERATIONS_FORMAT', 'json')
+    }
+    
     verify_ssl = env.get('SSL_CHECK', 'True') != 'False'
     users = "0"
     try:
         curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
         response = curl.json()
-        if response.get('users') is not None:
-              users = response['users'][0]['total']
+        if response.get('users') is not None and isinstance(response.get('users'), list):
+              users = response['users'][0].get('total', '0')
     except Exception:
          pass
     
