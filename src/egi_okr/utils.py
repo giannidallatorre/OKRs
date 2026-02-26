@@ -18,6 +18,7 @@
 import os
 import json
 import warnings
+import requests
 import gspread
 import traceback
 
@@ -254,6 +255,92 @@ def get_env_settings():
              d['GOOGLE_SLAs_SHEET_NAME'] = defaults.get('GOOGLE_SLAs_SHEET_NAME')
 
     return d
+
+def get_sla_vos_list(env):
+    """
+    Retrieve the list of VOs that have or had SLAs.
+    
+    This list is used to query accounting data for all these VOs.
+    Future work can add API integration to dynamically determine and filter only active SLAs.
+    
+    Precedence:
+    1. SLA_VOs_LIST environment variable (comma-separated list of VO names)
+    2. active_slas.json file (if exists - JSON with "vos" key)
+    3. Default hardcoded list
+    
+    Returns:
+        list: List of VO names to query for SLA accounting data
+    """
+    # Default list of all VOs that have or had SLAs
+    default_sla_vos = [
+        'belle', 'biomed', 'eiscat.se', 'enmr.eu', 'fusion', 'icecube', 
+        'openrisknet.org', 'perla-pv.ro', 'vo.ai4publicpolicy.eu', 'vo.clarin.eu', 
+        'vo.decido-project.eu', 'vo.digitbrain.eu', 'vo.emphasisproject.eu', 
+        'vo.emso-eric.eu', 'vo.enes.org', 'vo.envrihub.eu', 'vo.eries.eu', 
+        'vo.eurosea.marine.ie', 'vo.geoss.eu', 'vo.imagine-ai.eu', 'vo.lethe-project.eu', 
+        'vo.nbis.se', 'vo.obsea.es', 'vo.neurodesk.eu', 'vo.operas-eu.org', 
+        'vo.oipub.com', 'vo.pangeo.eu', 'vo.radiotracers4psma.eu', 'vo.usegalaxy.eu', 
+        'vo.access.egi.eu', 'training.egi.eu', 'vo.seadatanet.org', 'vo.nextgeoss.eu', 
+        'vo.aneris.eu', 'vo.epos-eric.eu', 'vo.openbiomaps.org'
+    ]
+    
+    # 1. Check environment variable first
+    if os.environ.get('SLA_VOs_LIST'):
+        vo_str = os.environ.get('SLA_VOs_LIST')
+        return [vo.strip() for vo in vo_str.split(',') if vo.strip()]
+    
+    # 2. Try to load from .config/sla_vos.json file
+    sla_vos_file = env.get('SLA_VOs_FILE', '.config/sla_vos.json')
+    if os.path.exists(sla_vos_file):
+        try:
+            with open(sla_vos_file, 'r') as f:
+                data = json.load(f)
+                # Support either a list or a dict with 'vos' key
+                if isinstance(data, list):
+                    return data
+                elif isinstance(data, dict) and 'vos' in data:
+                    return data['vos']
+        except Exception as e:
+            print(colourise("yellow", "[WARN]"), f"Failed to read {sla_vos_file}: {e}")
+    
+    # 3. Use default list
+    return default_sla_vos
+
+def initialize_slas_sheet(worksheet, env):
+    """Initialize the SLAs reference sheet with a list of VOs that have or had SLAs.
+    
+    Simple structure:
+    - Column A: VO Name
+    - Remaining columns: For future use (status, notes, etc.)
+    
+    Args:
+        worksheet: The gspread worksheet to populate
+        env: Environment configuration
+    """
+    try:
+        # Check if sheet already has data
+        existing = worksheet.get_all_values()
+        if existing and len(existing) > 1:
+            print(colourise("cyan", "[INFO]"), "SLAs sheet already populated, skipping initialization")
+            return
+        
+        sla_vos = get_sla_vos_list(env)
+        if not sla_vos:
+            print(colourise("yellow", "[WARN]"), "No SLA VOs to initialize")
+            return
+        
+        # Build rows: header + VO names
+        rows_to_insert = [['VO Name']]
+        for vo in sla_vos:
+            rows_to_insert.append([vo])
+        
+        # Write all rows
+        print(colourise("cyan", "[INFO]"), f"Initializing SLAs sheet with {len(sla_vos)} VOs...")
+        worksheet.update('A1:A' + str(len(rows_to_insert)), rows_to_insert, value_input_option='RAW')
+        print(colourise("green", "[SUCCESS]"), f"SLAs sheet initialized with {len(sla_vos)} VOs")
+        
+    except Exception as e:
+        print(colourise("yellow", "[WARN]"), f"Failed to initialize SLAs sheet: {e}")
 
 def validate_google_credentials(service_info):
     """Validate Google service account credentials"""
@@ -563,3 +650,178 @@ def get_checkin_access_token(env):
     except Exception as e:
         print(colourise("red", "[ERROR]"), f"Failed to refresh Check-in token: {e}")
         return None
+
+def sync_slas_sheet_from_report(ws_slas, ws_report):
+    """Populate SLAs sheet with filtered data from a report sheet (CloudReport or HTCReport).
+    
+    Shows all columns/data from the report, but only rows for VOs that are in the SLAs sheet.
+    
+    Args:
+        ws_slas: The SLAs reference worksheet (contains VO list in column A)
+        ws_report: The report worksheet to filter from (CloudReport or HTCReport)
+    """
+    try:
+        # Get list of SLA VO names from column A (starting row 2, skip header)
+        sla_data = ws_slas.get_all_values()
+        if not sla_data or len(sla_data) < 2:
+            return
+        
+        sla_vo_names = {row[0] for row in sla_data[1:] if row and len(row) > 0}
+        if not sla_vo_names:
+            return
+        
+        # Get all data from report sheet
+        report_data = ws_report.get_all_values()
+        if not report_data:
+            return
+        
+        # Filter report rows to only include SLA VOs
+        headers = report_data[0]
+        filtered_rows = [headers]
+        for row in report_data[1:]:
+            if row and len(row) > 0 and row[0] in sla_vo_names:
+                filtered_rows.append(row)
+        
+        # Write filtered data back to SLAs sheet
+        print(colourise("cyan", "[INFO]"), f"Syncing {len(filtered_rows)-1} SLA VOs from {ws_report.title}...")
+        ws_slas.update('A1', filtered_rows, value_input_option='RAW')
+        print(colourise("green", "[SUCCESS]"), f"SLAs sheet synced with {len(filtered_rows)-1} VOs")
+        
+    except Exception as e:
+        print(colourise("yellow", "[WARN]"), f"Failed to sync SLAs from {ws_report.title}: {e}")
+
+
+# ----------------------------------------------------------------------------
+# Confluence SLA VO fetcher
+# ----------------------------------------------------------------------------
+
+_CONFLUENCE_CUSTOMER_DB_PAGE_ID = "1867983"  # "Customer database" page, IMS space
+_VO_PLACEHOLDERS = {"n/a", "see the table", "as in the sla agreement", "see above", "", "-"}
+
+
+def _normalize_confluence_vo_name(raw):
+    """Normalize a VO name value from Confluence, handling URL format.
+
+    Examples:
+      'vo.pangeo.eu'  -> 'vo.pangeo.eu'
+      'https://operations-portal.egi.eu/vo/view/voname/youreact.vo.egi.eu' -> 'youreact.vo.egi.eu'
+    """
+    if not raw:
+        return None
+    raw = raw.strip()
+    # Extract VO name from Operations Portal URL
+    if "operations-portal.egi.eu" in raw and "voname/" in raw:
+        raw = raw.split("voname/")[-1].rstrip("/")
+    # Filter out placeholder text
+    if raw.lower() in _VO_PLACEHOLDERS:
+        return None
+    # Filter out remaining URLs or multi-word sentences
+    if raw.startswith("http") or " " in raw or len(raw) > 100:
+        return None
+    return raw
+
+
+def _parse_confluence_customer_page(html_body):
+    """Extract (vo_name, sla_status) from a Confluence customer page body (Storage Format)."""
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return None, None
+
+    soup = BeautifulSoup(html_body, "html.parser")
+    vo_name = None
+    sla_status = None
+
+    for tr in soup.find_all("tr"):
+        cells = tr.find_all(["th", "td"])
+        if len(cells) < 2:
+            continue
+        key = cells[0].get_text(strip=True)
+        val = cells[1].get_text(strip=True)
+        if key == "Virtual Organization":
+            vo_name = _normalize_confluence_vo_name(val)
+        elif key == "SLA status":
+            sla_status = val.strip().upper()
+
+    return vo_name, sla_status
+
+
+def get_confluence_sla_vos(env):
+    """Fetch VOs with FINALIZED SLA status from the Confluence IMS Customer database.
+
+    Requires CONFLUENCE_SERVER_URL and CONFLUENCE_AUTH_TOKEN in env.
+    Returns a sorted list of VO names, or [] if not configured / on error.
+    """
+    import concurrent.futures
+
+    server_url = env.get("CONFLUENCE_SERVER_URL", "").rstrip("/") + "/"
+    token = env.get("CONFLUENCE_AUTH_TOKEN", "")
+
+    if not server_url or not token or token == "your_token_here":
+        return []
+
+    headers = {
+        "Accept": "application/json",
+        "user-agent": "egi-automation",
+        "Authorization": f"Bearer {token}",
+    }
+    verify_ssl = env.get("SSL_CHECK", "True") != "False"
+
+    # 1. Fetch all customer pages via CQL
+    pages = []
+    start = 0
+    limit = 50
+    try:
+        while True:
+            resp = requests.get(
+                f"{server_url}rest/api/content/search",
+                headers=headers,
+                params={
+                    "cql": f'label = "customer" and space = "IMS" and ancestor = {_CONFLUENCE_CUSTOMER_DB_PAGE_ID}',
+                    "limit": limit,
+                    "start": start,
+                },
+                verify=verify_ssl,
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            results = data.get("results", [])
+            pages.extend(results)
+            if len(results) < limit:
+                break
+            start += limit
+    except Exception as e:
+        print(colourise("yellow", "[WARN]"), f"Confluence: failed to list customer pages: {e}")
+        return []
+
+    print(colourise("cyan", "[INFO]"), f"Confluence: processing {len(pages)} customer pages...")
+
+    # 2. Fetch each page body in parallel (max 5 workers to avoid 429 rate-limiting)
+    def _fetch_and_parse(page):
+        page_id = page["id"]
+        try:
+            resp = requests.get(
+                f"{server_url}rest/api/content/{page_id}",
+                headers=headers,
+                params={"expand": "body.storage"},
+                verify=verify_ssl,
+                timeout=15,
+            )
+            resp.raise_for_status()
+            html = resp.json().get("body", {}).get("storage", {}).get("value", "")
+            return _parse_confluence_customer_page(html)
+        except Exception as e:
+            if env.get("LOG") == "DEBUG":
+                print(colourise("yellow", "[WARN]"), f"Confluence: failed page {page_id}: {e}")
+            return None, None
+
+    finalized_vos = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        for vo_name, sla_status in executor.map(_fetch_and_parse, pages):
+            if vo_name and sla_status and "FINALIZED" in sla_status:
+                finalized_vos.append(vo_name)
+
+    finalized_vos = sorted(set(finalized_vos))
+    print(colourise("green", "[SUCCESS]"), f"Confluence: found {len(finalized_vos)} FINALIZED SLA VOs")
+    return finalized_vos
