@@ -85,6 +85,52 @@ This GitHub repository includes clients to generate:
 * [The number of Services Orders (SOs) received throught the EOSC Marketplace](pyOKR_ServiceOrders_Accounting)
 * [Report of the VOs created/leaving the EGI Operations Portal](pyOKR_VOs_Report)
 
+## Command Line Interface (CLI)
+
+The project includes a modern CLI powered by **Typer**. It allows you to run accounting modules individually or all at once, with the option to print results directly to the terminal without writing to Google Sheets.
+
+### Usage
+
+You can run the CLI using one of the following methods:
+
+```bash
+# Option 1: Using the installed script (if installed via pip)
+egi-okr --help
+
+# Option 2: Using the module path
+python3 -m egi_okr.cli --help
+```
+
+### Commands
+
+| Command | Description |
+ | :--- | :--- |
+| `cpus` | Run CPU accounting (Cloud or HTC) |
+| `slas` | Run SLA accounting |
+| `users` | Run Users accounting and reports |
+| `orders` | Run Service Orders accounting |
+| `all` | Run all accounting modules sequentially |
+
+### Options and Flags
+
+*   `--print`: (Highly Recommended for local testing) Prints results to the terminal instead of pushing to Google Sheets. **Requires no Google credentials.**
+*   `--scope`: Choose between `cloud` (default) or `htc`.
+*   `--date-from`: Start date for reporting (e.g., `2024/01`).
+*   `--date-to`: End date for reporting (e.g., `2024/03`).
+
+### Examples
+
+```bash
+# Print Cloud CPU accounting to terminal (no sheets update)
+python3 -m egi_okr.cli cpus --print --scope cloud
+
+# Print SLA accounting for a specific period (HTC scope)
+python3 -m egi_okr.cli slas --print --scope htc --date-from 2024/01 --date-to 2024/03
+
+# Run all modules and push to Google Sheets (standard behavior)
+python3 -m egi_okr.cli all
+```
+
 ## Running Tests
 
 This project includes a `Makefile` to simplify running unit and integration tests.
