@@ -55,15 +55,21 @@ class CPUAccounting(BaseAccounting):
         )
         
         verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
-        try:
-            response = self.session.get(url=_url, headers={"Accept": "application/json"}, verify=verify_ssl, timeout=60)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            from .utils import hint_ssl_error
-            logging.error(f"[ERROR] Failed to fetch accounting data: {e}")
-            hint_ssl_error(e)
-            raise e
+        
+        # Implement retries for resilience
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                response = self.session.get(url=_url, headers={"Accept": "application/json"}, verify=verify_ssl, timeout=60)
+                response.raise_for_status()
+                return response.json()
+            except Exception as e:
+                if attempt < max_retries:
+                    continue
+                from .utils import hint_ssl_error
+                logging.error(f"[ERROR] Failed to fetch accounting data: {e}")
+                hint_ssl_error(e)
+                raise e
 
     def process_accounting_data(self, data):
         summary = {"total": 0, "total_cpu": 0, "noVOs": [], "VOs": []}
@@ -92,8 +98,9 @@ class CPUAccounting(BaseAccounting):
         return summary
 
     def run(self, dry_run=False):
-        scope = self.env.get('ACCOUNTING_SCOPE', '')
-        print(f"\n[*] Module: CPU-{scope.upper()}")
+        scope = self.env.get('ACCOUNTING_SCOPE', '').upper()
+        if scope == 'EGI': scope = 'HTC'
+        print(f"\n[*] Module: CPU-{scope}")
         
         worksheet_key = 'GOOGLE_CLOUD_WORKSHEET' if 'cloud' in scope else 'GOOGLE_HTC_WORKSHEET'
         worksheet = self.init_worksheet(worksheet_key)

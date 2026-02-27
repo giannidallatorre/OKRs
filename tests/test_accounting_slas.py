@@ -2,6 +2,7 @@
 import unittest
 import datetime
 from unittest.mock import patch, MagicMock
+import requests
 from egi_okr.accounting_slas import SLAsAccounting
 
 class TestSLAsAccounting(unittest.TestCase):
@@ -183,7 +184,62 @@ class TestSLAsAccounting(unittest.TestCase):
         # 4. Should have sensible CPU numbers (> 0)
         cpu_values = [v for v in values if isinstance(v, (int, float)) and v > 0]
         self.assertGreater(len(cpu_values), 0,
-                          "Should have at least some non-zero CPU values")
+                          "Should have least some non-zero CPU values")
+
+    @patch('egi_okr.utils.initialize_slas_sheet')
+    @patch('egi_okr.base_accounting.init_GWorkSheet')
+    @patch('requests.Session.get')
+    def test_retry_and_abort_logic(self, mock_get, mock_init, mock_init_slas):
+        """Test that individual VO accounting retries on failure and aborts if any VO fails."""
+        mock_ws = MagicMock()
+        mock_init.return_value = mock_ws
+        
+        # Test VO list
+        self.app.fetch_active_slas = MagicMock(return_value=[{'Name': 'vo.fail'}])
+        
+        # Mock API to fail with RequestException
+        mock_get.side_effect = requests.exceptions.RequestException("API Failure")
+        
+        self.app.run()
+        
+        # Verify it retried 3 times total (1 attempt + 2 retries)
+        self.assertEqual(mock_get.call_count, 3)
+        
+        # Verify it ABORTED (no update/update_cells called on the main worksheet)
+        self.assertFalse(mock_ws.update.called)
+        self.assertFalse(mock_ws.update_cells.called)
+
+    @patch('egi_okr.utils.initialize_slas_sheet')
+    @patch('egi_okr.base_accounting.init_GWorkSheet')
+    @patch('requests.Session.get')
+    def test_partial_failure_aborts_all(self, mock_get, mock_init, mock_init_slas):
+        """Test that if one VO fails and another succeeds, the whole run aborts for integrity."""
+        mock_ws = MagicMock()
+        mock_init.return_value = mock_ws
+        
+        # 2 VOs
+        self.app.fetch_active_slas = MagicMock(return_value=[
+            {'Name': 'vo.success'},
+            {'Name': 'vo.fail'}
+        ])
+        
+        # Mock responses
+        def side_effect(url, **kwargs):
+            m = MagicMock()
+            if 'vo.success' in url:
+                m.status_code = 200
+                m.json.return_value = [{'id': 'Total', 'Total': 100}]
+                return m
+            else:
+                raise requests.exceptions.RequestException("VO Fail")
+                
+        mock_get.side_effect = side_effect
+        
+        self.app.run()
+        
+        # Should NOT write anything to sheet
+        self.assertFalse(mock_ws.update.called)
+        self.assertFalse(mock_ws.update_cells.called)
 
 if __name__ == '__main__':
     unittest.main()

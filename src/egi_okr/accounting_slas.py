@@ -61,7 +61,7 @@ class SLAsAccounting(BaseAccounting):
                 for vo in vos_list]
 
     def fetch_vo_accounting(self, vo_name):
-        """Fetch accounting for a single VO using the custom selector (ensures coverage)."""
+        """Fetch accounting for a single VO with retries and custom selector."""
         parts_from = self.env['DATE_FROM'].replace("-", "/").split("/")
         parts_to = self.env['DATE_TO'].replace("-", "/").split("/")
         from_yr, from_mo = parts_from[0], parts_from[1].lstrip('0')
@@ -89,25 +89,32 @@ class SLAsAccounting(BaseAccounting):
         )
         
         verify_ssl = self.env.get('SSL_CHECK', 'True') != 'False'
-        try:
-            # Use shared session for Keep-Alive and connection pooling
-            r = self.session.get(url, verify=verify_ssl, timeout=30)
-            r.raise_for_status()
-            data = r.json()
-            # For a single VO, find the 'Total' record or return 0
-            for record in data:
-                if "Total" in record.get('id', ''):
-                    _raw = record.get('Total', 0)
-                    try: return int(float(_raw)) if _raw else 0
-                    except: return 0
-            return 0
-        except Exception as e:
-            # Store the error to be handled by the caller
-            raise e
+        
+        # Implement retries for resilience against intermittent timeouts/rate-limits
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                # Use shared session for Keep-Alive and connection pooling
+                r = self.session.get(url, verify=verify_ssl, timeout=30)
+                r.raise_for_status()
+                data = r.json()
+                # For a single VO, find the 'Total' record or return 0
+                for record in data:
+                    if "Total" in record.get('id', ''):
+                        _raw = record.get('Total', 0)
+                        try: return int(float(_raw)) if _raw else 0
+                        except: return 0
+                return 0
+            except Exception as e:
+                if attempt < max_retries:
+                    continue
+                # Signal the error to be handled by the caller
+                raise e
 
     def run(self, dry_run=False):
-        scope = self.env.get('ACCOUNTING_SCOPE', '')
-        print(f"\n[*] Module: SLA-{scope.upper()}")
+        scope = self.env.get('ACCOUNTING_SCOPE', '').upper()
+        if scope == 'EGI': scope = 'HTC'
+        print(f"\n[*] Module: SLA-{scope}")
         # Ensure the SLAs reference sheet (VO list) exists and is initialized.
         # This populates the `SLAs` worksheet with the configured VO list so
         # downstream accounting runs have the reference data available.
@@ -135,7 +142,8 @@ class SLAsAccounting(BaseAccounting):
         failure_count = 0
         last_error = None
         
-        with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+        # Reduced max_workers to 10 to avoid rate-limiting on accounting portal
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             # Create mapping of Future -> VO name
             future_to_vo = {executor.submit(self.fetch_vo_accounting, vo['Name']): vo['Name'] for vo in vos}
             for future in concurrent.futures.as_completed(future_to_vo):
@@ -152,15 +160,16 @@ class SLAsAccounting(BaseAccounting):
         if failure_count > 0:
             from .utils import hint_ssl_error
             print(colourise("red", "[ERROR]"), f"Failed to fetch accounting for {failure_count}/{len(vos)} VOs.")
-            if failure_count == len(vos) and last_error:
+            if last_error:
                 hint_ssl_error(last_error)
-
-        if failure_count == len(vos) and len(vos) > 0:
+            
+            # STRICT DATA INTEGRITY:
+            # If any request failed, we ABORT the sheet update to avoid reporting incomplete OKRs.
             if dry_run or self.print_mode:
                  status = "(Print Mode)" if self.print_mode else "(Dry Run)"
-                 print(colourise("red", f"\t{status}: ABORTED (All requests failed)"))
+                 print(colourise("red", f"\t{status}: ABORTED (Partial failure detected)"))
             else:
-                 print(colourise("red", "[ABORT]"), "All accounting requests failed. Skipping sheet update.")
+                 print(colourise("red", "[ABORT]"), "Some accounting requests failed. Aborting sheet update to ensure data integrity.")
             return
 
         if dry_run or self.print_mode:
