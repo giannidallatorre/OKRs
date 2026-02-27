@@ -55,7 +55,7 @@ def get_VOs_report(env, session=None):
     headers = get_operations_headers(env)
     if not headers:
         logging.error("[ERROR] Missing credentials for Operations Portal API")
-        return {"created": [], "deleted": []}
+        return []
 
     # Use /egi-reports/vo as the correct endpoint
     _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo"
