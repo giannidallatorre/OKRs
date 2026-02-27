@@ -637,9 +637,8 @@ def hint_ssl_error(e):
         print(colourise("yellow", "\n[HINT] SSL Certificate Verification Failed!"))
         print(colourise("gray", "This is common on macOS. You can:"))
         print(colourise("gray", f" 1. Run with the {colourise('bold', '--insecure')} flag to bypass this check."))
-        print(colourise("gray", f" 2. Combine with {colourise('bold', '--print')} if you just want to see results in terminal."))
-        print(colourise("gray", " 3. Run 'Install Certificates.command' in your Python folder (usually in /Applications)."))
-        print(colourise("gray", " 4. Set SSL_CHECK=False in your .env file.\n"))
+        print(colourise("gray", " 2. Run 'Install Certificates.command' in your Python folder (usually in /Applications)."))
+        print(colourise("gray", " 3. Set SSL_CHECK=False in your .env file.\n"))
 
 def get_logged_connections():
     """Return list of uniquely connected spreadsheets for summary info."""
