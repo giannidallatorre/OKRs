@@ -33,14 +33,24 @@ class CPUAccounting(BaseAccounting):
         from_year, from_month = parts_from[0], parts_from[1].lstrip('0')
         to_year, to_month = parts_to[0], parts_to[1].lstrip('0')
         
+        scope = self.env.get('ACCOUNTING_SCOPE', 'cloud').lower()
+        metric = self.env.get('ACCOUNTING_METRIC', 'sum_elap_processors')
+        benchmark = self.env.get('ACCOUNTING_BENCHMARK_SELECTOR', 'hepspec06')
+
+        # HTC Scope Mapping: Accounting Portal uses 'egi' for HTC, with specific metric/benchmark
+        if scope == 'htc' or scope == 'egi':
+            scope = 'egi'
+            if metric == 'sum_elap_processors': metric = 'elap_processors'
+            if benchmark == 'hepspec06': benchmark = 'undefined'
+
         _url = (
             f"{self.env['ACCOUNTING_SERVER_URL']}/"
-            f"{self.env['ACCOUNTING_SCOPE']}/"
-            f"{self.env['ACCOUNTING_METRIC']}/"
+            f"{scope}/"
+            f"{metric}/"
             f"VO/DATE/{from_year}/{from_month}/{to_year}/{to_month}/"
             f"{self.env['ACCOUNTING_VO_GROUP_SELECTOR']}/"
             f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
-            f"{self.env.get('ACCOUNTING_BENCHMARK_SELECTOR', 'hepspec06')}/"
+            f"{benchmark}/"
             f"{self.env['ACCOUNTING_DATA_SELECTOR']}/"
         )
         

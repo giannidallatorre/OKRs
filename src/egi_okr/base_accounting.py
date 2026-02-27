@@ -17,6 +17,10 @@ class BaseAccounting:
         self.session = self.env.get('_requests_session')
         if not self.session:
             self.session = requests.Session()
+            # Increase pool size for parallel requests (default is 10)
+            adapter = requests.adapters.HTTPAdapter(pool_connections=50, pool_maxsize=50)
+            self.session.mount("https://", adapter)
+            self.session.mount("http://", adapter)
             
         # Proactive Auto-Print Fallback:
         # If not in print_mode, check if we actually HAVE credentials.

@@ -67,11 +67,20 @@ class SLAsAccounting(BaseAccounting):
         from_yr, from_mo = parts_from[0], parts_from[1].lstrip('0')
         to_yr, to_mo = parts_to[0], parts_to[1].lstrip('0')
         
+        scope = self.env.get('ACCOUNTING_SCOPE', 'cloud').lower()
+        metric = self.env.get('ACCOUNTING_METRIC', 'sum_elap_processors')
         benchmark = self.env.get('ACCOUNTING_BENCHMARK_SELECTOR', 'hepspec06')
+
+        # HTC Scope Mapping: Accounting Portal uses 'egi' for HTC, with specific metric/benchmark
+        if scope == 'htc' or scope == 'egi':
+            scope = 'egi'
+            if metric == 'sum_elap_processors': metric = 'elap_processors'
+            if benchmark == 'hepspec06': benchmark = 'undefined'
+
         url = (
             f"{self.env['ACCOUNTING_SERVER_URL']}/"
-            f"{self.env['ACCOUNTING_SCOPE']}/"
-            f"{self.env['ACCOUNTING_METRIC']}/"
+            f"{scope}/"
+            f"{metric}/"
             f"VO/DATE/{from_yr}/{from_mo}/{to_yr}/{to_mo}/"
             f"custom-{vo_name}/"
             f"{self.env['ACCOUNTING_LOCAL_JOB_SELECTOR']}/"
@@ -146,19 +155,22 @@ class SLAsAccounting(BaseAccounting):
             if failure_count == len(vos) and last_error:
                 hint_ssl_error(last_error)
 
+        if failure_count == len(vos) and len(vos) > 0:
+            if dry_run or self.print_mode:
+                 status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+                 print(colourise("red", f"\t{status}: ABORTED (All requests failed)"))
+            else:
+                 print(colourise("red", "[ABORT]"), "All accounting requests failed. Skipping sheet update.")
+            return
+
         if dry_run or self.print_mode:
             status = "(Print Mode)" if self.print_mode else "(Dry Run)"
-            if failure_count == len(vos) and len(vos) > 0:
-                 print(colourise("red", f"\t{status}: ABORTED (All requests failed)"))
-                 return # Skip breakdown
-            else:
-                 print(colourise("green", f"\t{status}: {total_cpu} CPU/h across {len(vos) - failure_count} successful VOs"))
-            
+            print(colourise("green", f"\t{status}: {total_cpu} CPU/h across {len(vos) - failure_count} successful VOs"))
             if self.print_mode:
                 for name, cpu in sorted(vo_data):
                     print(f"\t  - {name}: {cpu}")
             return
-            
+
         if not worksheet:
             print(colourise("red", "[ABORT]"), f"Worksheet {ws_key} not found.")
             return
