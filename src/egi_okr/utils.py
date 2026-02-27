@@ -250,8 +250,10 @@ def get_env_settings():
         if val: # Only override if the environment variable is not None AND not empty
             d[key] = val
     
-    # Cascade JIRA_PROJECT to specific keys if they are missing
-    if 'JIRA_PROJECT' in d:
+    # Cascade JIRA_PROJECT to specific keys if targets are missing OR default
+    # but ONLY if JIRA_PROJECT itself is not default or was explicitly provided.
+    if d.get('JIRA_PROJECT') != defaults.get('JIRA_PROJECT') or \
+       'JIRA_PROJECT' in os.environ:
         for key in ['SERVICE_ORDERS_PROJECTKEY', 'COMPLAINS_PROJECTKEY', 'VIOLATIONS_PROJECTKEY']:
             if key not in d or not d[key] or d.get(key) == defaults.get(key):
                  d[key] = d['JIRA_PROJECT']
@@ -259,10 +261,8 @@ def get_env_settings():
     # Fallback for GOOGLE_SLAs_SHEET_NAME
     # Precedence: Explicit ENV > GOOGLE_SHEET_NAME (if set) > Default
     if not os.environ.get('GOOGLE_SLAs_SHEET_NAME'):
-        if os.environ.get('GOOGLE_SHEET_NAME'):
+        if d.get('GOOGLE_SHEET_NAME') and d.get('GOOGLE_SHEET_NAME') != defaults.get('GOOGLE_SHEET_NAME'):
              d['GOOGLE_SLAs_SHEET_NAME'] = d['GOOGLE_SHEET_NAME']
-        else:
-             d['GOOGLE_SLAs_SHEET_NAME'] = defaults.get('GOOGLE_SLAs_SHEET_NAME')
 
     return d
 

@@ -16,7 +16,9 @@ class TestUsersAccounting(unittest.TestCase):
             'GOOGLE_VOS_TOTAL_WORKSHEET': 'VOs-Total',
             'GOOGLE_VOS_REPORT_WORKSHEET': 'Reports',
             'OPERATIONS_SERVER_URL': 'http://ops',
-            'OPERATIONS_API_KEY': 'key'
+            'OPERATIONS_API_KEY': 'key',
+            'GOOGLE_SHEET_NAME': 'dummy',
+            'SERVICE_ACCOUNT_JSON': '{"client_email": "test@test.com", "private_key": "-----BEGIN PRIVATE KEY-----\\nFAKE\\n-----END PRIVATE KEY-----"}'
         }
         self.app = UsersAccounting(self.env)
 

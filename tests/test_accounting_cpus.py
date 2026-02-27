@@ -17,7 +17,9 @@ class TestCPUAccounting(unittest.TestCase):
             'ACCOUNTING_LOCAL_JOB_SELECTOR': 'onlyinfrajobs',
             'ACCOUNTING_DATA_SELECTOR': 'JSON',
             'LOG': 'DEBUG',
-            'ACCOUNTING_BENCHMARK_SELECTOR': 'hepspec06'
+            'ACCOUNTING_BENCHMARK_SELECTOR': 'hepspec06',
+            'GOOGLE_SHEET_NAME': 'dummy',
+            'SERVICE_ACCOUNT_JSON': '{"client_email": "test@test.com", "private_key": "-----BEGIN PRIVATE KEY-----\\nFAKE\\n-----END PRIVATE KEY-----"}'
         }
         self.app = CPUAccounting(self.env)
 
@@ -32,8 +34,8 @@ class TestCPUAccounting(unittest.TestCase):
     @patch('requests.Session.get')
     def test_fetch_accounting_data_network_error(self, mock_get):
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
-        data = self.app.fetch_accounting_data()
-        self.assertEqual(data, [])
+        with self.assertRaises(requests.exceptions.RequestException):
+            self.app.fetch_accounting_data()
 
     @patch('egi_okr.base_accounting.init_GWorkSheet')
     def test_update_worksheet_range_write(self, mock_init):

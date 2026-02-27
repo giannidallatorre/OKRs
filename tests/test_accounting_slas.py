@@ -18,7 +18,9 @@ class TestSLAsAccounting(unittest.TestCase):
             'ACCOUNTING_LOCAL_JOB_SELECTOR': 'local',
             'ACCOUNTING_DATA_SELECTOR': 'data',
             'ACCOUNTING_BENCHMARK_SELECTOR': 'hepspec06',
-            'ACCOUNTING_VO_GROUP_SELECTOR': 'egi'
+            'ACCOUNTING_VO_GROUP_SELECTOR': 'egi',
+            'GOOGLE_SHEET_NAME': 'dummy',
+            'SERVICE_ACCOUNT_JSON': '{"client_email": "test@test.com", "private_key": "-----BEGIN PRIVATE KEY-----\\nFAKE\\n-----END PRIVATE KEY-----"}'
         }
         self.app = SLAsAccounting(self.env)
 

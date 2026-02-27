@@ -10,6 +10,7 @@ import os
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+from unittest.mock import patch, MagicMock
 from egi_okr.utils import validate_date_format, format_reporting_period, get_env_settings
 
 
@@ -153,7 +154,8 @@ class TestGetEnvSettings:
                 del os.environ[key]
         
         try:
-            settings = get_env_settings()
+            with patch('dotenv.load_dotenv'):
+                settings = get_env_settings()
             
             # Verify defaults are present
             assert settings['JIRA_PROJECT'] == 'EOSC'

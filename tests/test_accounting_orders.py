@@ -14,7 +14,9 @@ class TestOrdersAccounting(unittest.TestCase):
             'GOOGLE_ORDERS_WORKSHEET': 'Orders',
             'JIRA_SERVER_URL': 'http://jira',
             'JIRA_AUTH_TOKEN': 'token',
-            'SERVICE_ORDERS_PROJECTKEY': 'SO'
+            'SERVICE_ORDERS_PROJECTKEY': 'SO',
+            'GOOGLE_SHEET_NAME': 'dummy',
+            'SERVICE_ACCOUNT_JSON': '{"client_email": "test@test.com", "private_key": "-----BEGIN PRIVATE KEY-----\\nFAKE\\n-----END PRIVATE KEY-----"}'
         }
         self.app = OrdersAccounting(self.env)
 
