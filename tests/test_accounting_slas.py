@@ -241,5 +241,23 @@ class TestSLAsAccounting(unittest.TestCase):
         self.assertFalse(mock_ws.update.called)
         self.assertFalse(mock_ws.update_cells.called)
 
+    @patch('egi_okr.utils.initialize_slas_sheet')
+    @patch('egi_okr.base_accounting.init_GWorkSheet')
+    @patch('requests.Session.get')
+    def test_vo_404_handled_as_zero(self, mock_get, mock_init, mock_init_slas):
+        """Test that a 404 for a VO is treated as 0 CPU hours, not a failure."""
+        mock_ws = MagicMock()
+        mock_init.return_value = mock_ws
+        self.app.fetch_active_slas = MagicMock(return_value=[{'Name': 'vo.none'}])
+        
+        mock_get.return_value.status_code = 404
+        
+        self.app.run()
+        
+        # Verify it did NOT abort (it should proceed to write 0)
+        self.assertTrue(mock_ws.update_cells.called)
+        cells = mock_ws.update_cells.call_args[0][0]
+        self.assertEqual(cells[0].value, 0)
+
 if __name__ == '__main__':
     unittest.main()

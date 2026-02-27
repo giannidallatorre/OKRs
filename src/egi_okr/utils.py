@@ -25,6 +25,9 @@ import traceback
 # Suppress warnings
 warnings.filterwarnings("ignore")
 
+# In-memory cache for connection logging to avoid redundant prints within the same process
+_PRINTED_CONNECTIONS = set()
+
 def validate_date_format(date_str, field_name='DATE'):
     """
     Validate date string format is YYYY/MM or YYYY-MM.
@@ -530,8 +533,10 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                 sheet = account.open(sheet_name)
                 sheets_cache[sheet_name] = sheet
             
-            # Singleton logging: only print connection info once per spreadsheet ID
-            if sheet.id not in connections:
+            # Singleton logging: only print connection info once per spreadsheet ID in THIS process
+            global _PRINTED_CONNECTIONS
+            if sheet.id not in _PRINTED_CONNECTIONS:
+                _PRINTED_CONNECTIONS.add(sheet.id)
                 connections[sheet.id] = {"title": sheet.title, "url": sheet.url}
                 print(colourise("cyan", "[INFO]"), f"Connected to Spreadsheet: '{sheet.title}'")
                 print(colourise("cyan", "[INFO]"), f"URL: {sheet.url}")

@@ -61,8 +61,13 @@ class CPUAccounting(BaseAccounting):
         for attempt in range(max_retries + 1):
             try:
                 response = self.session.get(url=_url, headers={"Accept": "application/json"}, verify=verify_ssl, timeout=60)
+                if response.status_code == 404:
+                    return [] # Return empty list if no data for scope
                 response.raise_for_status()
-                return response.json()
+                try:
+                    return response.json()
+                except json.JSONDecodeError:
+                    return [] # Empty or invalid JSON = empty records list
             except Exception as e:
                 if attempt < max_retries:
                     continue
@@ -102,7 +107,7 @@ class CPUAccounting(BaseAccounting):
         if scope == 'EGI': scope = 'HTC'
         print(f"\n[*] Module: CPU-{scope}")
         
-        worksheet_key = 'GOOGLE_CLOUD_WORKSHEET' if 'cloud' in scope else 'GOOGLE_HTC_WORKSHEET'
+        worksheet_key = 'GOOGLE_CLOUD_WORKSHEET' if 'CLOUD' in scope.upper() else 'GOOGLE_HTC_WORKSHEET'
         worksheet = self.init_worksheet(worksheet_key)
         
         try:

@@ -96,8 +96,14 @@ class SLAsAccounting(BaseAccounting):
             try:
                 # Use shared session for Keep-Alive and connection pooling
                 r = self.session.get(url, verify=verify_ssl, timeout=30)
+                if r.status_code == 404:
+                    return 0 # VO not found in accounting portal = 0 CPU hours
                 r.raise_for_status()
-                data = r.json()
+                try:
+                    data = r.json()
+                except json.JSONDecodeError:
+                    return 0 # Empty or invalid JSON = 0 CPU hours
+                
                 # For a single VO, find the 'Total' record or return 0
                 for record in data:
                     if "Total" in record.get('id', ''):
@@ -128,7 +134,7 @@ class SLAsAccounting(BaseAccounting):
             # accounting should proceed using API/fallback lists.
             pass
 
-        ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET' if 'cloud' in scope else 'GOOGLE_SLAs_HTC_WORKSHEET'
+        ws_key = 'GOOGLE_SLAs_CLOUD_WORKSHEET' if 'CLOUD' in scope.upper() else 'GOOGLE_SLAs_HTC_WORKSHEET'
         worksheet = self.init_worksheet(ws_key)
         
         vos = self.fetch_active_slas()
