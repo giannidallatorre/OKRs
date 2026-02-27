@@ -43,7 +43,13 @@ class UsersAccounting(BaseAccounting):
         """Unified logic from legacy vo_reports.py - Created/Deleted VO counts."""
         worksheet = self.init_worksheet('GOOGLE_VOS_REPORT_WORKSHEET')
         
-        vos_report = get_VOs_report(self.env, session=self.session)
+        try:
+            vos_report = get_VOs_report(self.env, session=self.session)
+        except Exception:
+            if dry_run or self.print_mode:
+                 status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+                 print(colourise("red", f"\t{status}: ABORTED (VO report fetch failed)"))
+            return
         if dry_run or self.print_mode:
             status = "(Print Mode)" if self.print_mode else "(Dry Run)"
             print(colourise("green", f"\t{status}: Fetched Created/Deleted reports for {len(vos_report)} status types."))
@@ -90,7 +96,13 @@ class UsersAccounting(BaseAccounting):
         print(f"\n[*] Module: Users (Standardized)")
         
         # Always fetch stats for reporting/dry-run
-        vos_stats = get_VOs_stats(self.env, session=self.session)
+        try:
+            vos_stats = get_VOs_stats(self.env, session=self.session)
+        except Exception:
+            if dry_run or self.print_mode:
+                 status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+                 print(colourise("red", f"\t{status}: ABORTED (VO stats fetch failed)"))
+            return
         
         if dry_run or self.print_mode:
             status = "(Print Mode)" if self.print_mode else "(Dry Run)"

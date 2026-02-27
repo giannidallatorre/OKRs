@@ -160,6 +160,10 @@ def get_env_settings():
     try:
         from dotenv import load_dotenv
         load_dotenv()
+        # Fallback to local.secrets if it exists
+        local_secrets = os.path.join(os.getcwd(), 'act_setup', 'local.secrets')
+        if os.path.exists(local_secrets):
+            load_dotenv(dotenv_path=local_secrets)
     except ImportError:
         pass
 

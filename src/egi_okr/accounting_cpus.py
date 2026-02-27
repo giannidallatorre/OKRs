@@ -53,7 +53,7 @@ class CPUAccounting(BaseAccounting):
             from .utils import hint_ssl_error
             logging.error(f"[ERROR] Failed to fetch accounting data: {e}")
             hint_ssl_error(e)
-            return []
+            raise e
 
     def process_accounting_data(self, data):
         summary = {"total": 0, "total_cpu": 0, "noVOs": [], "VOs": []}
@@ -88,8 +88,14 @@ class CPUAccounting(BaseAccounting):
         worksheet_key = 'GOOGLE_CLOUD_WORKSHEET' if 'cloud' in scope else 'GOOGLE_HTC_WORKSHEET'
         worksheet = self.init_worksheet(worksheet_key)
         
-        data = self.fetch_accounting_data()
-        summary = self.process_accounting_data(data)
+        try:
+            data = self.fetch_accounting_data()
+            summary = self.process_accounting_data(data)
+        except Exception:
+            if dry_run or self.print_mode:
+                 status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+                 print(colourise("red", f"\t{status}: ABORTED (Data fetch failed)"))
+            return
 
         if dry_run or self.print_mode:
             status = "(Print Mode)" if self.print_mode else "(Dry Run)"

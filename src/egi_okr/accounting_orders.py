@@ -61,8 +61,14 @@ class OrdersAccounting(BaseAccounting):
         worksheet = self.init_worksheet('GOOGLE_ORDERS_WORKSHEET')
         
         # Always fetch data
-        orders = get_service_orders(self.env, session=self.session)
-        buckets = self.process_orders(orders)
+        try:
+            orders = get_service_orders(self.env, session=self.session)
+            buckets = self.process_orders(orders)
+        except Exception:
+            if dry_run or self.print_mode:
+                 status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+                 print(colourise("red", f"\t{status}: ABORTED (Jira fetch failed)"))
+            return
         
         if dry_run or self.print_mode:
             status = "(Print Mode)" if self.print_mode else "(Dry Run)"

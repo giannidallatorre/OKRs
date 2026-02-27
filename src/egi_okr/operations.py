@@ -71,11 +71,13 @@ def get_VOs_report(env, session=None):
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
+        from .utils import hint_ssl_error
         msg = f"{e}"
         if hasattr(e, 'response') and e.response is not None:
              msg += f"\nResponse: {e.response.text}"
         print(colourise("red", "[ERROR]"), f"Failed to fetch VO report: {msg}")
-        return []
+        hint_ssl_error(e)
+        raise e
 
     VOs_report = []
 
@@ -186,11 +188,13 @@ def get_VOs_stats(env, session=None):
         curl.raise_for_status()
         response = curl.json()
     except Exception as e:
+        from .utils import hint_ssl_error
         msg = f"{e}"
         if hasattr(e, 'response') and e.response is not None:
              msg += f"\nResponse: {e.response.text}"
         print(colourise("red", "[ERROR]"), f"API failure fetching VOs list: {msg}")
-        return []
+        hint_ssl_error(e)
+        raise e
 
     vo_details = []
     index = 0

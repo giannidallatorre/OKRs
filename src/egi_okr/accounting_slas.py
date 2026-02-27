@@ -93,7 +93,8 @@ class SLAsAccounting(BaseAccounting):
                     except: return 0
             return 0
         except Exception as e:
-            return 0
+            # Store the error to be handled by the caller
+            raise e
 
     def run(self, dry_run=False):
         scope = self.env.get('ACCOUNTING_SCOPE', '')
@@ -122,6 +123,9 @@ class SLAsAccounting(BaseAccounting):
         
         # 1. Fetch data in parallel (High performance)
         vo_data = []
+        failure_count = 0
+        last_error = None
+        
         with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
             # Create mapping of Future -> VO name
             future_to_vo = {executor.submit(self.fetch_vo_accounting, vo['Name']): vo['Name'] for vo in vos}
@@ -132,11 +136,24 @@ class SLAsAccounting(BaseAccounting):
                     total_cpu += cpu
                     vo_data.append((vo_name, cpu))
                 except Exception as e:
+                    failure_count += 1
+                    last_error = e
                     vo_data.append((vo_name, 0))
+
+        if failure_count > 0:
+            from .utils import hint_ssl_error
+            print(colourise("red", "[ERROR]"), f"Failed to fetch accounting for {failure_count}/{len(vos)} VOs.")
+            if failure_count == len(vos) and last_error:
+                hint_ssl_error(last_error)
 
         if dry_run or self.print_mode:
             status = "(Print Mode)" if self.print_mode else "(Dry Run)"
-            print(colourise("green", f"\t{status}: {total_cpu} CPU/h across {len(vos)} SLAs"))
+            if failure_count == len(vos) and len(vos) > 0:
+                 print(colourise("red", f"\t{status}: ABORTED (All requests failed)"))
+                 return # Skip breakdown
+            else:
+                 print(colourise("green", f"\t{status}: {total_cpu} CPU/h across {len(vos) - failure_count} successful VOs"))
+            
             if self.print_mode:
                 for name, cpu in sorted(vo_data):
                     print(f"\t  - {name}: {cpu}")

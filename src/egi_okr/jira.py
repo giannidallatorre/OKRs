@@ -52,8 +52,10 @@ def get_service_orders(env, session=None):
         response.raise_for_status()
         orders = response.json()
     except Exception as e:
+        from .utils import hint_ssl_error
         logging.error(f"[ERROR] Failed to fetch JIRA orders: {e}")
-        return []
+        hint_ssl_error(e)
+        raise e
 
     if not isinstance(orders, dict) or 'issues' not in orders:
         logging.error(f"[ERROR] Invalid JIRA response: {orders}")
@@ -97,8 +99,10 @@ def get_customers_complains(env, session=None):
         response.raise_for_status()
         data = response.json()
     except Exception as e:
+        from .utils import hint_ssl_error
         logging.error(f"[ERROR] Failed to fetch JIRA complains: {e}")
-        return []
+        hint_ssl_error(e)
+        raise e
 
     if 'issues' in data:
         for issue in data['issues']:
@@ -196,8 +200,11 @@ def get_sla_violations(env, session=None):
             logging.error(f"[ERROR] Jira returned status {response.status_code}: {response.text}")
         response.raise_for_status()
         data = response.json()
-    except Exception:
-        return []
+    except Exception as e:
+        from .utils import hint_ssl_error
+        logging.error(f"[ERROR] Failed to fetch JIRA violations: {e}")
+        hint_ssl_error(e)
+        raise e
 
     if 'issues' in data:
         for issue in data['issues']:
