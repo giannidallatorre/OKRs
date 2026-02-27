@@ -422,7 +422,8 @@ def init_google_credentials(env):
                 return account
             except FileNotFoundError:
                 print(colourise("red", "[ABORT]"), \
-                    "SERVICE_ACCOUNT_FILE not found")
+                    "SERVICE_ACCOUNT_FILE not found. " + \
+                    colourise("yellow", "(Hint: Use --print to test without Google Sheets)"))
                 return None
             except json.JSONDecodeError:
                 print(colourise("red", "[ABORT]"), \
@@ -513,7 +514,8 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
         try:
             sheet_name = env.get(spreadsheet_env_var)
             if not sheet_name:
-                 print(colourise("red", "[ABORT]"), f"{spreadsheet_env_var} environment variable not set")
+                 print(colourise("red", "[ABORT]"), f"{spreadsheet_env_var} environment variable not set. " + \
+                       colourise("yellow", "(Hint: Use --print to test without Google Sheets)"))
                  return None
             
             # Connection reuse: check spreadsheet cache
@@ -635,8 +637,9 @@ def hint_ssl_error(e):
         print(colourise("yellow", "\n[HINT] SSL Certificate Verification Failed!"))
         print(colourise("gray", "This is common on macOS. You can:"))
         print(colourise("gray", f" 1. Run with the {colourise('bold', '--insecure')} flag to bypass this check."))
-        print(colourise("gray", " 2. Run 'Install Certificates.command' in your Python folder (usually in /Applications)."))
-        print(colourise("gray", " 3. Set SSL_CHECK=False in your .env file.\n"))
+        print(colourise("gray", f" 2. Combine with {colourise('bold', '--print')} if you just want to see results in terminal."))
+        print(colourise("gray", " 3. Run 'Install Certificates.command' in your Python folder (usually in /Applications)."))
+        print(colourise("gray", " 4. Set SSL_CHECK=False in your .env file.\n"))
 
 def get_logged_connections():
     """Return list of uniquely connected spreadsheets for summary info."""
