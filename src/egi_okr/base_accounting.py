@@ -1,3 +1,4 @@
+import os
 import requests
 import datetime
 import gspread
@@ -16,6 +17,19 @@ class BaseAccounting:
         self.session = self.env.get('_requests_session')
         if not self.session:
             self.session = requests.Session()
+            
+        # Proactive Auto-Print Fallback:
+        # If not in print_mode, check if we actually HAVE credentials.
+        # If not, switch to print_mode automatically to avoid cryptic [ABORT] errors.
+        if not self.print_mode:
+            has_creds = ('SERVICE_ACCOUNT_JSON' in self.env) or \
+                        ('SERVICE_ACCOUNT_FILE' in self.env and os.path.exists(self.env['SERVICE_ACCOUNT_FILE']))
+            has_sheet = bool(self.env.get('GOOGLE_SHEET_NAME'))
+            
+            if not has_creds or not has_sheet:
+                self.print_mode = True
+                print(colourise("cyan", "[INFO]"), "Google Sheet credentials or Sheet Name missing.")
+                print(colourise("cyan", "[INFO]"), "Switching to " + colourise("bold", "Auto-Print mode") + " (terminal output only).\n")
 
     def init_worksheet(self, worksheet_env_key):
         """Initialize and return a GWorkSheet, or None on failure/print mode."""
