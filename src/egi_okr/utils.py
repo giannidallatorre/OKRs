@@ -628,6 +628,16 @@ def handle_exception(e, env, worksheet=None):
         logging.debug("\n[DEBUG] Traceback:")
         logging.debug(traceback.format_exc())
 
+def hint_ssl_error(e):
+    """Detect SSL certificate verification failure and provide a helpful hint for macOS users."""
+    err_msg = str(e)
+    if "[SSL: CERTIFICATE_VERIFY_FAILED]" in err_msg:
+        print(colourise("yellow", "\n[HINT] SSL Certificate Verification Failed!"))
+        print(colourise("gray", "This is common on macOS. You can:"))
+        print(colourise("gray", f" 1. Run with the {colourise('bold', '--insecure')} flag to bypass this check."))
+        print(colourise("gray", " 2. Run 'Install Certificates.command' in your Python folder (usually in /Applications)."))
+        print(colourise("gray", " 3. Set SSL_CHECK=False in your .env file.\n"))
+
 def get_logged_connections():
     """Return list of uniquely connected spreadsheets for summary info."""
     cache = _load_process_cache()

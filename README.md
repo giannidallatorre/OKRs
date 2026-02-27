@@ -100,7 +100,24 @@ For automated production runs, configure these **Repository Secrets**:
 
 ---
 
-## 📖 Detailed Setup Guides
+## �️ Troubleshooting
+
+### SSL: CERTIFICATE_VERIFY_FAILED (macOS)
+
+If you encounter an SSL verification error on macOS, it's usually because Python doesn't have its own certificate store.
+
+**Fix 1: Permanent (Recommended)**
+Open your Applications folder, find the Python version you are using (e.g., Python 3.13), and double-click the `Install Certificates.command` file. This will install the necessary root certificates.
+
+**Fix 2: Quick Bypass**
+Use the `--insecure` flag in the CLI:
+```bash
+egi-okr cpus --print --insecure
+```
+
+---
+
+## �📖 Detailed Setup Guides
 
 <details>
 <summary><b>Google Account Setup</b> (Click to expand)</summary>

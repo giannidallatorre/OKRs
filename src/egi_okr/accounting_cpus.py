@@ -50,7 +50,9 @@ class CPUAccounting(BaseAccounting):
             response.raise_for_status()
             return response.json()
         except Exception as e:
+            from .utils import hint_ssl_error
             logging.error(f"[ERROR] Failed to fetch accounting data: {e}")
+            hint_ssl_error(e)
             return []
 
     def process_accounting_data(self, data):
