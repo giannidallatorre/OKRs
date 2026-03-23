@@ -31,6 +31,15 @@ source_secrets.sh
 **/.config/service_account.json
 .config/service_account.json
 
-# But keep templates
+# Build artifacts
+*.egg-info/
+src/egi_okr.egg-info/
+
+# Local data and output files
+templates.json
+*.json
+
+# But keep specific templates and config
 !**/.config/service_account.json.template
 !.env.template
+!pyproject.toml

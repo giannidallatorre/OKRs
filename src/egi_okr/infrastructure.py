@@ -84,3 +84,68 @@ class InfrastructureManager:
                 print(colourise("red", "[ERROR]"), f"Failed to save results: {e}")
                 
         return results
+
+from .base_accounting import BaseAccounting
+
+class TemplatesAccounting(BaseAccounting):
+    """Module for VM templates (images) accounting and reporting."""
+    
+    def __init__(self, env=None):
+        super().__init__(env)
+        self.inf_manager = InfrastructureManager(env=self.env)
+
+    def run(self, dry_run=False):
+        print("\n[*] Module: Infrastructure Templates")
+        
+        worksheet_key = 'GOOGLE_TEMPLATES_WORKSHEET'
+        worksheet = self.init_worksheet(worksheet_key)
+        
+        # 1. Fetch data
+        try:
+            print(colourise("cyan", "[INFO]"), "Discovering active EGI FedCloud sites and images...")
+            sites = self.inf_manager.get_sites()
+            results = []
+            site_metrics = {}
+            total_images = 0
+            
+            for site in sites:
+                name = site.get('name')
+                images = self.inf_manager.get_site_images(name)
+                total_images += len(images)
+                site_metrics[name] = len(images)
+                results.append({"name": name, "count": len(images)})
+                
+        except Exception as e:
+            if dry_run or self.print_mode:
+                 status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+                 print(colourise("red", f"\t{status}: ABORTED (Data fetch failed: {e})"))
+            return
+
+        # 2. Print or Write
+        if dry_run or self.print_mode:
+            status = "(Print Mode)" if self.print_mode else "(Dry Run)"
+            print(colourise("green", f"\t{status}: Found {total_images} images across {len(sites)} sites"))
+            for res in results:
+                print(f"\t- {res['name']}: {res['count']} images")
+            return
+            
+        if not worksheet:
+            print(colourise("red", "[ABORT]"), f"Worksheet {worksheet_key} not found.")
+            return
+
+        # Setup Data for GSheet
+        # We'll list each site as a row and the number of images as the value for the period
+        labels = sorted(site_metrics.keys())
+        data_map = site_metrics
+        # Add a TOTAL row
+        if labels:
+            labels.append("TOTAL")
+            data_map["TOTAL"] = total_images
+
+        print(f"\tUpdating worksheet '{worksheet.title}'...")
+        self.update_worksheet_data(
+            worksheet, 
+            row_labels=labels, 
+            data_map=data_map, 
+            first_col_label="Site"
+        )

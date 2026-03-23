@@ -18,13 +18,16 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import json
-from egi_okr.infrastructure import InfrastructureManager
+from egi_okr.infrastructure import InfrastructureManager, TemplatesAccounting
 
 class TestInfrastructure(unittest.TestCase):
     def setUp(self):
         self.env = {
             'SSL_CHECK': 'False',
-            'LOG': 'DEBUG'
+            'LOG': 'DEBUG',
+            'PRINT_MODE': 'False',
+            'GOOGLE_SHEET_NAME': 'TestSheet',
+            'SERVICE_ACCOUNT_JSON': '{"dummy": "json"}'
         }
         self.im = InfrastructureManager(env=self.env)
 
@@ -94,6 +97,27 @@ class TestInfrastructure(unittest.TestCase):
             self.assertEqual(len(results), 1)
             self.assertEqual(results[0]['images'][0]['egi_id'], "IMG1")
             mocked_file.assert_called()
+
+    @patch('egi_okr.infrastructure.TemplatesAccounting.init_worksheet')
+    @patch('egi_okr.infrastructure.InfrastructureManager.get_site_images')
+    @patch('egi_okr.infrastructure.InfrastructureManager.get_sites')
+    def test_templates_accounting_run(self, mock_sites, mock_images, mock_init_ws):
+        # Mock site discovery
+        mock_sites.return_value = [{"name": "SITE1"}]
+        mock_images.return_value = [{"egi_id": "IMG1"}]
+        
+        # Mock GSheet sync
+        mock_ws = MagicMock()
+        mock_init_ws.return_value = mock_ws
+        
+        ta = TemplatesAccounting(env=self.env)
+        with patch.object(ta, 'update_worksheet_data') as mock_update:
+            ta.run()
+            mock_update.assert_called()
+            # Verify total count logic
+            call_args = mock_update.call_args[1]
+            self.assertEqual(call_args['data_map']['TOTAL'], 1)
+            self.assertIn("SITE1", call_args['row_labels'])
 
 if __name__ == '__main__':
     unittest.main()

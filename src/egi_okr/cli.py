@@ -6,7 +6,7 @@ from .accounting_cpus import CPUAccounting
 from .accounting_slas import SLAsAccounting
 from .accounting_users import UsersAccounting
 from .accounting_orders import OrdersAccounting
-from .infrastructure import InfrastructureManager
+from .infrastructure import TemplatesAccounting
 
 app = typer.Typer(help="EGI OKRs Accounting CLI Tool")
 
@@ -45,29 +45,13 @@ def run_module(module_class, print_mode: bool, scope: Optional[str] = None, date
 
 @app.command()
 def templates(
-    site: Optional[str] = typer.Option(None, help="Site name (e.g., IFCA-LCG2). If omitted, fetches all active sites."),
-    output: str = typer.Option("templates.json", help="Output JSON file"),
-    insecure: bool = typer.Option(get_default_insecure, "--insecure", help="Skip SSL certificate verification")
+    print_mode: bool = typer.Option(get_default_print, "--print", help="Print results to terminal instead of Google Sheets"),
+    insecure: bool = typer.Option(get_default_insecure, "--insecure", help="Skip SSL certificate verification"),
+    date_from: Optional[str] = typer.Option(None, help="Start date (YYYY/MM)"),
+    date_to: Optional[str] = typer.Option(None, help="End date (YYYY/MM)")
 ):
     """Fetch available VM templates (images) from the EGI Cloud Info API."""
-    import json
-    env = get_env_settings()
-    if insecure:
-        env['SSL_CHECK'] = 'False'
-        
-    inf_manager = InfrastructureManager(env=env)
-    
-    if site:
-        print(colourise("cyan", "[INFO]"), f"Fetching images for site {site}...")
-        images = inf_manager.get_site_images(site)
-        try:
-            with open(output, 'w') as f:
-                json.dump(images, f, indent=2)
-            print(colourise("green", "[SUCCESS]"), f"Fetched {len(images)} images for {site} saved to {output}")
-        except Exception as e:
-            print(colourise("red", "[ERROR]"), f"Failed to save results: {e}")
-    else:
-        inf_manager.run_discovery(output_file=output)
+    run_module(TemplatesAccounting, print_mode, None, date_from, date_to, insecure)
 
 @app.command()
 
@@ -131,6 +115,8 @@ def all(
     run_module(UsersAccounting, print_mode, None, date_from, date_to, insecure)
     # Orders
     run_module(OrdersAccounting, print_mode, None, date_from, date_to, insecure)
+    # Templates
+    run_module(TemplatesAccounting, print_mode, None, date_from, date_to, insecure)
 
 if __name__ == "__main__":
     app()
