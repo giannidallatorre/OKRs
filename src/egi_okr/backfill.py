@@ -8,6 +8,7 @@ from egi_okr.accounting_users import UsersAccounting
 from egi_okr.accounting_cpus import CPUAccounting
 from egi_okr.accounting_slas import SLAsAccounting
 from egi_okr.accounting_orders import OrdersAccounting
+from egi_okr.infrastructure import TemplatesAccounting
 
 def get_quarters(start_year, end_year):
     quarters = []
@@ -48,9 +49,9 @@ def main():
     
     parser = argparse.ArgumentParser(description="Backfill OKR data for previous years")
     parser.add_argument("--start", type=int, default=2020, help="Start year (default: 2020)")
-    parser.add_argument("--end", type=int, default=2025, help="End year (default: 2025)")
+    parser.add_argument("--end", type=int, default=2026, help="End year (default: 2026)")
     parser.add_argument("--dry-run", action="store_true", help="Dry run mode")
-    parser.add_argument("--module", choices=["users", "cpus-cloud", "cpus-htc", "slas-cloud", "slas-htc", "orders", "all"], default="all")
+    parser.add_argument("--module", choices=["users", "cpus-cloud", "cpus-htc", "slas-cloud", "slas-htc", "orders", "templates", "all"], default="all")
     args = parser.parse_args()
 
     env = get_env_settings()
@@ -87,6 +88,9 @@ def main():
 
     if args.module in ["orders", "all"]:
         modules.append({"name": "Orders", "class": OrdersAccounting, "env_mods": {}})
+
+    if args.module in ["templates", "all"]:
+        modules.append({"name": "Templates", "class": TemplatesAccounting, "env_mods": {}})
 
     for period in periods:
         print(colourise("cyan", f"\n>>> Processing Period: {period['from']} to {period['to']}"))

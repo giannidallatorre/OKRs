@@ -107,3 +107,11 @@ jobs:
                   USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_slas
+
+            - name: Run Templates Infrastructure Accounting
+              env:
+                  OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
+                  CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
+                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
+              run: |
+                  python -m egi_okr.infrastructure

@@ -140,6 +140,36 @@ def find_difference(activeVOs_1, activeVOs_2):
 
     return arrivingVOs_str, leavingVOs_str
 
+def gspread_retry(func):
+    """Decorator to retry gspread/Google API calls on 429 Quota Exceeded errors."""
+    import time
+    import random
+    import gspread
+    
+    def wrapper(*args, **kwargs):
+        max_retries = 8
+        for attempt in range(max_retries):
+            try:
+                return func(*args, **kwargs)
+            except gspread.exceptions.APIError as e:
+                # Check for 429 Quota Exceeded
+                err_str = str(e)
+                if '429' in err_str or 'Quota exceeded' in err_str:
+                    # Exponential backoff with jitter: 2, 4, 8, 16... + random
+                    wait_time = (2 ** (attempt + 1)) + (random.random() * 2)
+                    print(colourise("yellow", f"\t[RETRY] Google Sheets Quota Exceeded. Waiting {wait_time:.2f}s before attempt {attempt+2}/{max_retries}..."))
+                    time.sleep(wait_time)
+                else:
+                    raise
+            except Exception as e:
+                # Other transient network issues might benefit from a quick retry too
+                if attempt < 2:
+                    time.sleep(1)
+                    continue
+                raise
+        return func(*args, **kwargs) # Final attempt (let it raise if it fails)
+    return wrapper
+
 def get_env_settings():
     """
     Retrieve environment configuration with three-level precedence:
@@ -506,6 +536,7 @@ def _save_process_cache(cache):
             json.dump(cache, f)
     except: pass # Ignore errors, cache is not critical
 
+@gspread_retry
 def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NAME'):
     """Initialize the GWorkSheet settings and return the worksheet"""
     try:

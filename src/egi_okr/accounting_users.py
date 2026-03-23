@@ -19,7 +19,7 @@
 import json
 import gspread
 from .base_accounting import BaseAccounting
-from .utils import colourise, handle_exception
+from .utils import colourise, handle_exception, gspread_retry
 from .operations import get_VOs_stats, get_VOs_report
 
 class UsersAccounting(BaseAccounting):
@@ -39,6 +39,7 @@ class UsersAccounting(BaseAccounting):
             start_row=2
         )
 
+    @gspread_retry
     def run_vo_reports_logic(self, dry_run=False):
         """Unified logic from legacy vo_reports.py - Created/Deleted VO counts."""
         worksheet = self.init_worksheet('GOOGLE_VOS_REPORT_WORKSHEET')

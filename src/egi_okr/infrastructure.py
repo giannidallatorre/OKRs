@@ -149,3 +149,6 @@ class TemplatesAccounting(BaseAccounting):
             data_map=data_map, 
             first_col_label="Site"
         )
+
+if __name__ == "__main__":
+    TemplatesAccounting().run()

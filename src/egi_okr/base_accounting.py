@@ -2,7 +2,7 @@ import os
 import requests
 import datetime
 import gspread
-from .utils import get_env_settings, handle_exception, init_GWorkSheet, format_reporting_period, colourise
+from .utils import get_env_settings, handle_exception, init_GWorkSheet, format_reporting_period, colourise, gspread_retry
 
 class BaseAccounting:
     """Base class for all accounting modules to centralize GSpread logic and boilerplate."""
@@ -35,6 +35,7 @@ class BaseAccounting:
                 print(colourise("cyan", "[INFO]"), "Google Sheet credentials or Sheet Name missing.")
                 print(colourise("cyan", "[INFO]"), "Switching to " + colourise("bold", "Auto-Print mode") + " (terminal output only).\n")
 
+    @gspread_retry
     def init_worksheet(self, worksheet_env_key):
         """Initialize and return a GWorkSheet, or None on failure/print mode."""
         if self.print_mode:
@@ -56,6 +57,7 @@ class BaseAccounting:
             return headers.index(label) + 1
         return None
 
+    @gspread_retry
     def get_period_column(self, worksheet, start_col=2, static_headers=None, headers=None):
         """Standardized logic to find or add the reporting period column in Row 1.
         Default: Descending lexicographical order (newest first).
@@ -110,6 +112,7 @@ class BaseAccounting:
                         break
         return row
 
+    @gspread_retry
     def apply_standard_formatting(self, worksheet, last_col_letter='Z'):
         """Apply consistent formatting style to all sheets."""
         worksheet.batch_format([
@@ -130,6 +133,7 @@ class BaseAccounting:
             }
         ])
 
+    @gspread_retry
     def update_timestamp(self, worksheet, cell="A1", prefix="Last update on: "):
         """Update last update note/cell."""
         timestamp = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
@@ -138,6 +142,7 @@ class BaseAccounting:
         except:
             pass
 
+    @gspread_retry
     def update_worksheet_data(self, worksheet, row_labels, data_map, first_col_label="Metric", start_row=2, period_col=None):
         """
         Centralized 'Read-Once, Write-Batch' logic for per-worksheet updates.
@@ -168,8 +173,7 @@ class BaseAccounting:
             if row_labels:
                 worksheet.update(f'A{start_row}:A{start_row + len(row_labels) - 1}', 
                                 [[l] for l in row_labels], value_input_option='RAW')
-            # Refresh local handles after init
-            all_values = worksheet.get_all_values()
+            # Local update to avoid re-reading all values (Save 1 API call per initialized sheet)
             headers = [first_col_label]
             existing_labels = [first_col_label] + row_labels
 

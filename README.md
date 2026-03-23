@@ -144,8 +144,8 @@ egi-okr cpus --print --insecure
 
 Populate years of data in minutes:
 ```bash
-# Quarterly backfill from 2020 to 2025
-make backfill ARGS="--start 2020 --end 2025"
+# Quarterly backfill from 2020 to 2026
+make backfill ARGS="--start 2020 --end 2026"
 ```
 </details>
 
