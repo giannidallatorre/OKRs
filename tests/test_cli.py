@@ -48,13 +48,23 @@ class TestCLI(unittest.TestCase):
     @patch("egi_okr.cli.SLAsAccounting")
     @patch("egi_okr.cli.UsersAccounting")
     @patch("egi_okr.cli.OrdersAccounting")
-    def test_all_command(self, mock_orders, mock_users, mock_sla, mock_cpu):
+    @patch("egi_okr.cli.TemplatesAccounting")
+    def test_all_command(self, mock_templates, mock_orders, mock_users, mock_sla, mock_cpu):
         result = runner.invoke(app, ["all", "--print"])
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(mock_cpu.call_count, 2) # cloud + htc
         self.assertEqual(mock_sla.call_count, 2) # cloud + htc
         self.assertEqual(mock_users.call_count, 1)
         self.assertEqual(mock_orders.call_count, 1)
+        self.assertEqual(mock_templates.call_count, 1)
+
+    @patch("egi_okr.cli.TemplatesAccounting")
+    def test_templates_command(self, mock_templates):
+        result = runner.invoke(app, ["templates", "--print"])
+        self.assertEqual(result.exit_code, 0)
+        mock_templates.assert_called_once()
+        passed_env = mock_templates.call_args[1].get('env', {})
+        self.assertEqual(passed_env.get('PRINT_MODE'), 'True')
     @patch("egi_okr.cli.CPUAccounting")
     @patch("egi_okr.cli.get_env_settings")
     def test_cpus_env_defaults(self, mock_get_env, mock_cpu):
