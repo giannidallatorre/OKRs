@@ -11,6 +11,7 @@ Automated accounting and reporting tool for the EGI Foundation to track **Object
     *   **User Metrics**: Tracks 'Registered', 'Total', and 'Active' users from VO registries.
     *   **Service Orders**: Monitors EOSC Marketplace orders via Jira.
     *   **SLA Compliance**: Syncs finalized SLAs from Confluence and Operations Portal.
+    *   **Infrastructure Discovery**: Fetches active FedCloud sites and VM images (templates) via the new Cloud Info API (`is.cloud.egi.eu`).
 *   **Intelligent Synchronization**:
     *   **Read-Once, Write-Batch**: High-performance GSheets sync that minimizes API calls.
     *   **Quota Safety**: Built-in batching and defensive delays to avoid `429 Quota Exceeded` errors.
@@ -66,6 +67,7 @@ The `egi-okr` command is your main entry point.
 | `slas` | Service Level Agreement accounting |
 | `users` | User statistics and membership reports |
 | `orders` | Marketplace Service Orders |
+| `templates` | Fetch VM images/templates from Cloud Info API |
 | `all` | Sequentially run all modules |
 
 ### Common Flags

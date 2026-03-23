@@ -6,10 +6,12 @@ from .accounting_cpus import CPUAccounting
 from .accounting_slas import SLAsAccounting
 from .accounting_users import UsersAccounting
 from .accounting_orders import OrdersAccounting
+from .infrastructure import InfrastructureManager
 
 app = typer.Typer(help="EGI OKRs Accounting CLI Tool")
 
 def get_default_print():
+
     """Check if PRINT_MODE is enabled in environment."""
     # We call get_env_settings to ensure .env is loaded
     env = get_env_settings()
@@ -42,6 +44,33 @@ def run_module(module_class, print_mode: bool, scope: Optional[str] = None, date
     module.run()
 
 @app.command()
+def templates(
+    site: Optional[str] = typer.Option(None, help="Site name (e.g., IFCA-LCG2). If omitted, fetches all active sites."),
+    output: str = typer.Option("templates.json", help="Output JSON file"),
+    insecure: bool = typer.Option(get_default_insecure, "--insecure", help="Skip SSL certificate verification")
+):
+    """Fetch available VM templates (images) from the EGI Cloud Info API."""
+    import json
+    env = get_env_settings()
+    if insecure:
+        env['SSL_CHECK'] = 'False'
+        
+    inf_manager = InfrastructureManager(env=env)
+    
+    if site:
+        print(colourise("cyan", "[INFO]"), f"Fetching images for site {site}...")
+        images = inf_manager.get_site_images(site)
+        try:
+            with open(output, 'w') as f:
+                json.dump(images, f, indent=2)
+            print(colourise("green", "[SUCCESS]"), f"Fetched {len(images)} images for {site} saved to {output}")
+        except Exception as e:
+            print(colourise("red", "[ERROR]"), f"Failed to save results: {e}")
+    else:
+        inf_manager.run_discovery(output_file=output)
+
+@app.command()
+
 def cpus(
     scope: str = typer.Option("cloud", help="Accounting scope (cloud/htc)"),
     print_mode: bool = typer.Option(get_default_print, "--print", help="Print results to terminal instead of Google Sheets"),
