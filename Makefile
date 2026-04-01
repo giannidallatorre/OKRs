@@ -50,6 +50,14 @@ backfill: ## Backfill historical data (2020-2026). Usage: make backfill ARGS="--
 
 ##@ Development
 
+setup: ## Create or update virtual environment and install dependencies
+	@echo "$(YELLOW)Setting up virtual environment...$(NC)"
+	@if [ ! -d "$(VENV)" ]; then python3 -m venv $(VENV); fi
+	@$(VENV)/bin/pip install --upgrade pip
+	@$(VENV)/bin/pip install -r requirements.txt
+	@$(VENV)/bin/pip install -e .
+	@echo "$(GREEN)✅ Setup completed! You can now run tests with 'make test'.$(NC)"
+
 clean: ## Remove Python cache and build artifacts
 	@echo "Cleaning up..."
 	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

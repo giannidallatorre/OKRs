@@ -31,18 +31,17 @@ Automated accounting and reporting tool for the EGI Foundation to track **Object
 *   API Tokens for EGI Portals (Jira, Operations, Confluence)
 
 ### 2. Installation
-The recommended way is to install in **editable mode**:
+The recommended way is to set up your local environment using the new generic automation:
 ```bash
 # Clone and enter directory
 git clone https://github.com/egi-foundation/okr-accounting.git
 cd okr-accounting
 
-# Create and activate virtual environment
-make venv
-source venv/bin/activate
+# Automatically create the virtual environment and install all dependencies
+make setup
 
-# Install dependencies (including dev tools)
-pip install -e .
+# Activate the virtual environment
+source venv/bin/activate
 ```
 
 ### 3. Basic Execution
