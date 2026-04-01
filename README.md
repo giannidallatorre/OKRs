@@ -70,9 +70,9 @@ The `egi-okr` command is your main entry point.
 | `all` | Sequentially run all modules |
 
 ### Common Flags
-*   `--print`: Terminal-only mode (No GSheets credentials required).
+*   `--print`: Terminal-only mode (No GSheets credentials required). Bypasses strict quarter validation.
 *   `--insecure`: Bypasses SSL issues (Required for some macOS installations).
-*   `--date-from` / `--date-to`: Specify reporting YYYY/MM period.
+*   `--date-from` / `--date-to`: Specify reporting YYYY/MM period. Google Sheets syncing strictly enforces **full quarters** (e.g., `2024/01` to `2024/03`). If omitted, it automatically defaults to the last fully completed quarter.
 
 ---
 

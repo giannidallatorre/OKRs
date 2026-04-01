@@ -1,3 +1,4 @@
+import unittest
 #!/usr/bin/env python3
 """
 Unit tests for egi_okr.utils module focusing on configuration and validation.
@@ -130,14 +131,43 @@ class TestFormatReportingPeriod:
         assert "." in period  # Should contain the dot separator
         assert "-" in period  # Should contain the month range separator
     
-    def test_partial_missing_dates(self):
-        """Test when only one date is missing"""
-        env = {'DATE_FROM': '2024/04'}
+    def test_partial_missing_dates_with_print_mode(self):
+        """Test partial dates when PRINT_MODE is enabled to avoid quarter validation failures"""
+        env = {'DATE_FROM': '2024/04', 'PRINT_MODE': 'True'}
         period = format_reporting_period(env)
-        # Should calculate DATE_TO as last month and succeed
+        # Should calculate DATE_TO as last quarter's end and succeed in print mode
         assert period != "UNKNOWN_PERIOD"
         assert period != "INVALID_PERIOD"
 
+    def test_quarter_validation_enforced(self):
+        """Test that non-quarter period is rejected when not in print mode"""
+        env = {'DATE_FROM': '2024/01', 'DATE_TO': '2024/02'}
+        period = format_reporting_period(env)
+        assert period == "INVALID_PERIOD"
+
+    def test_quarter_validation_bypassed_in_print_mode(self):
+        """Test that non-quarter period is accepted when PRINT_MODE is True"""
+        env = {'DATE_FROM': '2024/01', 'DATE_TO': '2024/02', 'PRINT_MODE': 'True'}
+        period = format_reporting_period(env)
+        assert period == "2024.01-02"
+
+    def test_future_quarter_rejected(self):
+        """Test that valid quarter is rejected if it has not completed yet"""
+        import datetime
+        today = datetime.date.today()
+        # A quarter in the next year will definitely not be completed
+        env = {'DATE_FROM': f'{today.year + 1}/04', 'DATE_TO': f'{today.year + 1}/06'}
+        period = format_reporting_period(env)
+        assert period == "INVALID_PERIOD"
+
+    def test_completed_quarter_accepted(self):
+        """Test that valid completed quarter is accepted"""
+        import datetime
+        today = datetime.date.today()
+        # A quarter in the previous year is definitely completed
+        env = {'DATE_FROM': f'{today.year - 1}/04', 'DATE_TO': f'{today.year - 1}/06'}
+        period = format_reporting_period(env)
+        assert period == f"{today.year - 1}.04-06"
 
 class TestGetEnvSettings:
     """Test environment settings configuration with cascading defaults"""
@@ -249,5 +279,174 @@ class TestGetEnvSettings:
                 os.environ['SERVICE_ACCOUNT_FILE'] = original
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+from unittest.mock import patch, MagicMock
+import os
+import gspread
+import logging
+from egi_okr.utils import init_GWorkSheet, handle_exception, colourise
+
+class TestUtilsExtended(unittest.TestCase):
+    def setUp(self):
+        self.env = {
+            'GOOGLE_SHEET_NAME': 'test_sheet',
+            'WORKSHEET_NAME': 'test_ws',
+            'USER_EMAIL': 'user@example.com',
+            'LOG': 'DEBUG'
+        }
+
+    @patch('egi_okr.utils.init_google_credentials')
+    def test_init_GWorkSheet_creation_and_sharing(self, mock_creds):
+        mock_account = MagicMock()
+        mock_creds.return_value = mock_account
+        
+        # 1. Mock Spreadsheet not found, then created
+        mock_sheet = MagicMock()
+        mock_sheet.id = "sheet_123"
+        mock_sheet.url = "http://sheet"
+        mock_account.open.side_effect = gspread.exceptions.SpreadsheetNotFound
+        mock_account.create.return_value = mock_sheet
+        
+        # 2. Mock Worksheet
+        mock_ws = MagicMock()
+        mock_sheet.worksheet.return_value = mock_ws
+        
+        # Run
+        ws = init_GWorkSheet(self.env, 'WORKSHEET_NAME', 'GOOGLE_SHEET_NAME')
+        
+        # Verify
+        mock_account.create.assert_called_with('test_sheet')
+        mock_sheet.share.assert_called_with('user@example.com', perm_type='user', role='writer', notify=True)
+        self.assertEqual(ws, mock_ws)
+
+    @patch('egi_okr.utils.init_google_credentials')
+    def test_init_GWorkSheet_existing_silent_sharing(self, mock_creds):
+        mock_account = MagicMock()
+        mock_creds.return_value = mock_account
+        
+        mock_sheet = MagicMock()
+        mock_sheet.id = "sheet_456"
+        mock_account.open.return_value = mock_sheet
+        
+        # Clear cache for deterministic test
+        import egi_okr.utils
+        if hasattr(egi_okr.utils, '_SHARED_CACHE'):
+            egi_okr.utils._SHARED_CACHE.clear()
+            
+        # Run
+        init_GWorkSheet(self.env, 'WORKSHEET_NAME', 'GOOGLE_SHEET_NAME')
+        
+        # Verify notify=False for existing sheet
+        mock_sheet.share.assert_called_with('user@example.com', perm_type='user', role='writer', notify=False)
+
+    def test_colourise_logic(self):
+        self.assertIn("\033[1;32m", colourise("green", "test"))
+        self.assertEqual(colourise("unknown", "test"), "test")
+
+    @patch('logging.error')
+    @patch('logging.debug')
+    def test_handle_exception_debug(self, mock_debug, mock_error):
+        # Force debug level
+        logging.getLogger().setLevel(logging.DEBUG)
+        
+        e = ValueError("test error message")
+        handle_exception(e, self.env)
+        
+        # Verify error logged
+        mock_error.assert_any_call("ERROR: test error message")
+        # Verify debug (traceback) logged
+        mock_debug.assert_any_call("\n[DEBUG] Traceback:")
+
+import os
+import json
+import requests
+from unittest.mock import patch, MagicMock
+from egi_okr.utils import _load_process_cache, _save_process_cache, clear_connection_cache, init_GWorkSheet
+from egi_okr.operations import get_VOs_stats
+
+class TestPerformanceFeatures(unittest.TestCase):
+    def setUp(self):
+        self.test_cache = ".test_conn_cache.json"
+        # Patch the constant in the module
+        self.patcher = patch('egi_okr.utils._CACHE_FILE', self.test_cache)
+        self.patcher.start()
+        clear_connection_cache()
+
+    def tearDown(self):
+        clear_connection_cache()
+        self.patcher.stop()
+
+    def test_persistent_cache_lifecycle(self):
+        """Verify that cache persists across loads and saves."""
+        data = {"connections": {"test_id": {"title": "Test Sheet", "url": "http://test"}}, "shared": ["id:user"]}
+        _save_process_cache(data)
+        
+        loaded = _load_process_cache()
+        self.assertEqual(loaded["connections"]["test_id"]["title"], "Test Sheet")
+        self.assertIn("id:user", loaded["shared"])
+
+    @patch('egi_okr.utils.init_google_credentials')
+    def test_init_GWorkSheet_logging_suppression(self, mock_creds):
+        """Verify that connection info is printed only once (cached)."""
+        env = {'GOOGLE_SHEET_NAME': 'TestSheet', 'USER_EMAIL': 'user@test', 'TEST_WS': 'Sheet1'}
+        mock_account = MagicMock()
+        mock_sheet = MagicMock()
+        mock_sheet.id = "unique_id"
+        mock_sheet.title = "TestSheet"
+        mock_sheet.url = "http://test"
+        mock_account.open.return_value = mock_sheet
+        mock_creds.return_value = mock_account
+
+        with patch('builtins.print') as mock_print:
+            # First call: should print
+            init_GWorkSheet(env, 'TEST_WS')
+            # Check if "[INFO] Connected to Spreadsheet" was printed
+            printed_texts = [call[0][1] for call in mock_print.call_args_list if len(call[0]) > 1]
+            self.assertTrue(any("Connected to Spreadsheet" in str(t) for t in printed_texts))
+            
+            mock_print.reset_mock()
+            
+            # Second call: should NOT print connection info
+            init_GWorkSheet(env, 'TEST_WS')
+            printed_texts = [call[0][1] for call in mock_print.call_args_list if len(call[0]) > 1]
+            self.assertFalse(any("Connected to Spreadsheet" in str(t) for t in printed_texts))
+
+    @patch('egi_okr.operations.get_VO_metadata')
+    @patch('egi_okr.operations.get_VO_users')
+    @patch('requests.Session.get')
+    def test_parallel_vo_fetching(self, mock_get, mock_users, mock_metadata):
+        """Verify that VOs are fetched in parallel (multiple calls made)."""
+        env = {
+            'OPERATIONS_SERVER_URL': 'http://ops',
+            'OPERATIONS_VO_LIST_PREFIX': '/list',
+            'DATE_FROM': '2024/01',
+            'DATE_TO': '2024/03'
+        }
+        mock_session = requests.Session()
+        
+        # 1. Mock VO List
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            'data': [
+                {'name': 'vo1', 'scope': 'egi', 'homeUrl': 'http://vo1'},
+                {'name': 'vo2', 'scope': 'egi', 'homeUrl': 'http://vo2'},
+                {'name': 'vo3', 'scope': 'egi', 'homeUrl': 'http://vo3'}
+            ]
+        }
+        mock_get.return_value = mock_resp
+        
+        # 2. Mock individual fetches
+        mock_metadata.return_value = ("Ack", "Url", 1)
+        mock_users.return_value = "10"
+        
+        # 3. Call get_VOs_stats
+        with patch('os.path.exists', return_value=False): # Bypass cache
+            stats = get_VOs_stats(env, session=mock_session)
+            
+        self.assertEqual(len(stats), 3)
+        self.assertEqual(mock_metadata.call_count, 3)
+        self.assertEqual(mock_users.call_count, 3)
+
+
+if __name__ == "__main__":
+    import pytest
+    pytest.main([__file__, "-v"])

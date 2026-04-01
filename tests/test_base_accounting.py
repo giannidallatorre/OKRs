@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from egi_okr.base_accounting import BaseAccounting
 
-class TestPeriodOrder(unittest.TestCase):
+class TestBaseAccounting(unittest.TestCase):
     def setUp(self):
         self.env = {
             'DATE_FROM': '2024/01',

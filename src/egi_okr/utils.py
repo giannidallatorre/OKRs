@@ -64,14 +64,25 @@ def format_reporting_period(env):
     date_from = env.get('DATE_FROM')
     date_to = env.get('DATE_TO')
     
+    import datetime
+    today = datetime.date.today()
+    
     if not date_from or not date_to:
-        # Fallback to last month if not provided
+        # Fallback to last fully completed quarter if not provided
         try:
-            import datetime
-            from dateutil.relativedelta import relativedelta
-            last_month = datetime.date.today() - relativedelta(months=1)
-            date_from = date_from or last_month.strftime("%Y/%m")
-            date_to = date_to or last_month.strftime("%Y/%m")
+            q_index = (today.month - 1) // 3
+            if q_index == 0:
+                calc_year = today.year - 1
+                q = 4
+            else:
+                calc_year = today.year
+                q = q_index
+                
+            start_m = (q - 1) * 3 + 1
+            end_m = q * 3
+            
+            date_from = date_from or f"{calc_year}/{start_m:02d}"
+            date_to = date_to or f"{calc_year}/{end_m:02d}"
             # Update the environment dict so other modules can use these calculated dates
             env['DATE_FROM'] = date_from
             env['DATE_TO'] = date_to
@@ -96,11 +107,25 @@ def format_reporting_period(env):
         parts_from = norm_from.split("/")
         parts_to = norm_to.split("/")
         
-        year = parts_from[0]
-        start_month = parts_from[1]
-        end_month = parts_to[1]
+        year_from = int(parts_from[0])
+        year_to = int(parts_to[0])
+        start_month = int(parts_from[1])
+        end_month = int(parts_to[1])
         
-        return f"{year}.{start_month}-{end_month}"
+        # Quarter constraints
+        print_mode = str(env.get('PRINT_MODE', 'False')).lower() in ('true', '1', 't')
+        
+        if not print_mode:
+            valid_quarters = [(1, 3), (4, 6), (7, 9), (10, 12)]
+            if year_from != year_to or (start_month, end_month) not in valid_quarters:
+                print(colourise("red", "[ERROR]"), "Google Sheets writing is restricted to quarters (1-3, 4-6, 7-9, 10-12). Use --print for custom periods.")
+                return "INVALID_PERIOD"
+                
+            if year_to > today.year or (year_to == today.year and end_month >= today.month):
+                print(colourise("red", "[ERROR]"), "Google Sheets writing is restricted to fully completed quarters (prior to current month). Use --print for current/future periods.")
+                return "INVALID_PERIOD"
+        
+        return f"{year_from}.{start_month:02d}-{end_month:02d}"
     except Exception as e:
         print(colourise("yellow", "[WARN]"), f"Error formatting reporting period: {e}")
         return "INVALID_PERIOD"
