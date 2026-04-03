@@ -91,6 +91,7 @@ SERVICE_ACCOUNT_FILE=credentials.json
 PRINT_MODE=True
 SSL_CHECK=False
 GOOGLE_SHEET_NAME=EGI_OKR_Reporting
+GOOGLE_SHARE_EMAILS=user1@example.com,user2@example.com
 ```
 
 ### GitHub Actions
@@ -98,6 +99,7 @@ For automated production runs, configure these **Repository Secrets**:
 1.  `SERVICE_ACCOUNT_JSON`: Full content of your Google JSON key.
 2.  `JIRA_AUTH_TOKEN`, `OPERATIONS_API_KEY`, `CONFLUENCE_AUTH_TOKEN`.
 3.  `GOOGLE_SHEET_NAME`: The name of your production spreadsheet.
+4.  `GOOGLE_SHARE_EMAILS`: (Optional) Comma-separated list of emails to automatically share newly created sheets with.
 
 ---
 

@@ -290,7 +290,7 @@ class TestUtilsExtended(unittest.TestCase):
         self.env = {
             'GOOGLE_SHEET_NAME': 'test_sheet',
             'WORKSHEET_NAME': 'test_ws',
-            'USER_EMAIL': 'user@example.com',
+            'GOOGLE_SHARE_EMAILS': 'user@example.com',
             'LOG': 'DEBUG'
         }
 
@@ -387,7 +387,7 @@ class TestPerformanceFeatures(unittest.TestCase):
     @patch('egi_okr.utils.init_google_credentials')
     def test_init_GWorkSheet_logging_suppression(self, mock_creds):
         """Verify that connection info is printed only once (cached)."""
-        env = {'GOOGLE_SHEET_NAME': 'TestSheet', 'USER_EMAIL': 'user@test', 'TEST_WS': 'Sheet1'}
+        env = {'GOOGLE_SHEET_NAME': 'TestSheet', 'GOOGLE_SHARE_EMAILS': 'user@test', 'TEST_WS': 'Sheet1'}
         mock_account = MagicMock()
         mock_sheet = MagicMock()
         mock_sheet.id = "unique_id"

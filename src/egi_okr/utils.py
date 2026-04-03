@@ -230,10 +230,10 @@ def get_env_settings():
     # List of all known environment variables across all modules
     keys = [
         # Generic
-        'LOG', 'DATE_FROM', 'DATE_TO', 'SSL_CHECK', 'USER_EMAIL',
+        'LOG', 'DATE_FROM', 'DATE_TO', 'SSL_CHECK',
         
         # Google / Sheets
-        'SERVICE_ACCOUNT_PATH', 'SERVICE_ACCOUNT_FILE', 'SERVICE_ACCOUNT_JSON', 'GOOGLE_SHEET_NAME',
+        'SERVICE_ACCOUNT_PATH', 'SERVICE_ACCOUNT_FILE', 'SERVICE_ACCOUNT_JSON', 'GOOGLE_SHEET_NAME', 'GOOGLE_SHARE_EMAILS',
         'GOOGLE_SERVICE_ORDERS_WORKSHEET', 'GOOGLE_VOS_WORKSHEET', 'GOOGLE_VOS_REGISTERED_WORKSHEET', 'GOOGLE_VOS_TOTAL_WORKSHEET', 'GOOGLE_VOS_REPORT_WORKSHEET',
         'GOOGLE_ORDERS_WORKSHEET',
         'GOOGLE_SLAs_CLOUD_WORKSHEET', 'GOOGLE_SLAs_HTC_WORKSHEET',
@@ -618,21 +618,30 @@ def init_GWorkSheet(env, worksheet_env_var, spreadsheet_env_var='GOOGLE_SHEET_NA
                 print(colourise("red", "[ABORT]"), f"Failed to create spreadsheet: {e}")
                 return None
 
-        # Check permissions and share with user if needed
-        user_email = env.get('USER_EMAIL')
-        if user_email:
-            cache_key = f"{sheet.id}:{user_email}"
+        # Determine who to share with
+        raw_emails = env.get('GOOGLE_SHARE_EMAILS')
+        
+        # Parse and de-duplicate
+        share_emails = []
+        if raw_emails:
+            for email in raw_emails.replace(',', ' ').split():
+                email = email.strip()
+                if email and email not in share_emails:
+                    share_emails.append(email)
+
+        for email in share_emails:
+            cache_key = f"{sheet.id}:{email}"
             if cache_key not in shared:
                 try:
                     # If just created, we MUST notify so the user gets the link.
                     # If it already existed, we share with notify=False to ensure access without spam.
-                    print(colourise("cyan", "[INFO]"), f"Ensuring access for {user_email}...")
-                    sheet.share(user_email, perm_type='user', role='writer', notify=just_created)
-                    print(colourise("green", "[SUCCESS]"), f"Shared with {user_email} (notify={just_created}).")
+                    print(colourise("cyan", "[INFO]"), f"Ensuring access for {email}...")
+                    sheet.share(email, perm_type='user', role='writer', notify=just_created)
+                    print(colourise("green", "[SUCCESS]"), f"Shared with {email} (notify={just_created}).")
                     shared.add(cache_key)
                 except Exception as e:
                     # Don't abort if sharing fails (might be Prod sheet owned by someone else)
-                    print(colourise("yellow", "[WARN]"), f"Could not share spreadsheet: {e}")
+                    print(colourise("yellow", "[WARN]"), f"Could not share spreadsheet with {email}: {e}")
         
         # Save updated cache
         cache["connections"] = connections
