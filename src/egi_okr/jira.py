@@ -25,9 +25,17 @@ def get_service_orders(env, session=None):
     if session is None: session = requests
 
     start = (env['DATE_FROM'].replace("/", "-")) + "-01"
-    end = (env['DATE_TO'].replace("/", "-")) + "-01"
+    
+    # Handle end date to be inclusive of the full month (e.g. 2026/03 -> 2026-04-01)
+    parts = env['DATE_TO'].split("/")
+    year, month = int(parts[0]), int(parts[1])
+    if month == 12:
+        next_year, next_month = year + 1, 1
+    else:
+        next_year, next_month = year, month + 1
+    end = f"{next_year}-{next_month:02d}-01"
 
-    jql = f"project={env['SERVICE_ORDERS_PROJECTKEY']} AND created >= '{start}' AND created <= '{end}' ORDER BY key DESC, priority DESC, updated DESC"
+    jql = f"project={env['SERVICE_ORDERS_PROJECTKEY']} AND created >= '{start}' AND created < '{end}' ORDER BY key DESC, priority DESC, updated DESC"
     _url = f"{env['JIRA_SERVER_URL']}rest/api/latest/search"
     params = {
         "jql": jql,

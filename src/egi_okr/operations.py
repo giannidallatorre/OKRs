@@ -250,8 +250,9 @@ def get_VO_period_members(env, vo_name, session=None):
     
     headers = get_operations_headers(env)
     
-    start = (env['DATE_FROM'].replace("/", "-")) + "-01"
-    end = (env['DATE_TO'].replace("/", "-")) + "-01"
+    # NOTE: /egi-reports/vo-users expects YYYY-MM format (not YYYY-MM-DD)
+    start = env['DATE_FROM'].replace("/", "-")
+    end = env['DATE_TO'].replace("/", "-")
     
     _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo-users"
     params = {
@@ -268,19 +269,37 @@ def get_VO_period_members(env, vo_name, session=None):
     try:
         curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
-        response = curl.json()
         
-        if response and isinstance(response, dict):
-            # Collect all data points across the period
-            if 'users' in response and isinstance(response['users'], list):
-                for user_data in response['users']:
-                    if user_data.get('vo') == vo_name or vo_name in str(user_data.get('vo', '')):
-                        # Try to get numeric values
+        # NOTE: The portal API sometimes returns multiple JSON objects separated by spaces.
+        # We use a decoder to parse them one by one.
+        decoder = json.JSONDecoder()
+        text = curl.text.strip()
+        pos = 0
+        responses = []
+        while pos < len(text):
+            try:
+                obj, pos = decoder.raw_decode(text, pos)
+                responses.append(obj)
+                # Skip whitespace after decoded object
+                while pos < len(text) and text[pos].isspace():
+                    pos += 1
+            except json.JSONDecodeError:
+                break
+        
+        for response in responses:
+            if not isinstance(response, dict):
+                continue
+                
+            # If the response matches our VO (or contains it)
+            if response.get('name') == vo_name or vo_name in response.get('name', ''):
+                if 'users' in response and isinstance(response['users'], list):
+                    for user_data in response['users']:
                         try:
-                            active_val = int(user_data.get('registered', user_data.get('active', 0)))
-                            total_val = int(user_data.get('total', 0))
-                            active_members_list.append(active_val)
-                            total_members_list.append(total_val)
+                            # In this API, 'total' is the primary metric per month
+                            # We collect all values to find the max (peak usage)
+                            val = int(user_data.get('total', user_data.get('registered', user_data.get('active', 0))))
+                            active_members_list.append(val)
+                            total_members_list.append(val)
                         except (ValueError, TypeError):
                             pass
         
@@ -306,8 +325,9 @@ def get_VO_users(env, vo, session=None):
 
     _url = f"{env['OPERATIONS_SERVER_URL'].replace('/api', '')}/api/egi-reports/vo-users"
     
-    start = (env['DATE_FROM'].replace("/", "-")) + "-01"
-    end = (env['DATE_TO'].replace("/", "-")) + "-01"
+    # NOTE: /egi-reports/vo-users expects YYYY-MM format (not YYYY-MM-DD)
+    start = env['DATE_FROM'].replace("/", "-")
+    end = env['DATE_TO'].replace("/", "-")
     
     params = {
         "vo_name": vo,
@@ -321,9 +341,29 @@ def get_VO_users(env, vo, session=None):
     try:
         curl = session.get(url=_url, headers=headers, params=params, verify=verify_ssl)
         curl.raise_for_status()
-        response = curl.json()
-        if response.get('users') is not None and isinstance(response.get('users'), list):
-              users = response['users'][0].get('total', '0')
+        
+        # NOTE: Handle streaming JSON format (multiple objects separated by spaces)
+        decoder = json.JSONDecoder()
+        text = curl.text.strip()
+        pos = 0
+        while pos < len(text):
+            try:
+                response, pos = decoder.raw_decode(text, pos)
+                # Skip whitespace after decoded object
+                while pos < len(text) and text[pos].isspace():
+                    pos += 1
+                
+                if not isinstance(response, dict):
+                    continue
+                
+                # Verify that this object is for our VO
+                if response.get('name') == vo or vo in response.get('name', ''):
+                    if response.get('users') is not None and isinstance(response.get('users'), list) and len(response['users']) > 0:
+                        # Grab the first (often the only or most recent) total
+                        users = response['users'][0].get('total', '0')
+                        break # Found it, we are done
+            except json.JSONDecodeError:
+                break
     except Exception:
          pass
     
