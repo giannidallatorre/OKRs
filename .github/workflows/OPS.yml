@@ -26,6 +26,8 @@ jobs:
             SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
             SSL_CHECK: "False"
             PIP_ROOT_USER_ACTION: ignore
+            # GOOGLE_SHARE_EMAILS can be a Repository Variable (vars) or Secret
+            GOOGLE_SHARE_EMAILS: ${{ vars.GOOGLE_SHARE_EMAILS || secrets.GOOGLE_SHARE_EMAILS }}
 
         steps:
             - uses: actions/checkout@v4
@@ -52,7 +54,6 @@ jobs:
                   JIRA_PROJECT: ${{ secrets.JIRA_PROJECT || 'EGISO' }}
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
-                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_orders
 
@@ -63,7 +64,6 @@ jobs:
                   ACCOUNTING_BENCHMARK_SELECTOR: hepspec06
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
-                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_cpus
 
@@ -74,7 +74,6 @@ jobs:
                   ACCOUNTING_BENCHMARK_SELECTOR: undefined
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
-                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_cpus
 
@@ -82,7 +81,6 @@ jobs:
               env:
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
-                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_users
 
@@ -93,7 +91,6 @@ jobs:
                   ACCOUNTING_SCOPE: cloud
                   ACCOUNTING_METRIC: sum_elap_processors
                   ACCOUNTING_BENCHMARK_SELECTOR: hepspec06
-                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_slas
 
@@ -104,7 +101,6 @@ jobs:
                   ACCOUNTING_SCOPE: egi
                   ACCOUNTING_METRIC: elap_processors
                   ACCOUNTING_BENCHMARK_SELECTOR: undefined
-                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.accounting_slas
 
@@ -112,6 +108,5 @@ jobs:
               env:
                   OPERATIONS_API_KEY: ${{ secrets.OPERATIONS_API_KEY }}
                   CHECKIN_REFRESH_TOKEN: ${{ secrets.CHECKIN_REFRESH_TOKEN }}
-                  USER_EMAIL: ${{ secrets.USER_EMAIL }}
               run: |
                   python -m egi_okr.infrastructure
