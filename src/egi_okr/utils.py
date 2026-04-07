@@ -130,6 +130,12 @@ def format_reporting_period(env):
         print(colourise("yellow", "[WARN]"), f"Error formatting reporting period: {e}")
         return "INVALID_PERIOD"
 
+def get_current_month_period():
+    """Returns the current month in YYYY/MM format for snapshot targeting."""
+    import datetime
+    today = datetime.date.today()
+    return f"{today.year}/{today.month:02d}"
+
 def colourise(colour, text):
     """Colourise - colours text in shell."""
     if colour == "black":

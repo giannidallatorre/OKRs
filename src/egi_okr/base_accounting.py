@@ -7,6 +7,8 @@ from .utils import get_env_settings, handle_exception, init_GWorkSheet, format_r
 class BaseAccounting:
     """Base class for all accounting modules to centralize GSpread logic and boilerplate."""
     
+    is_snapshot = False
+
     def __init__(self, env=None):
         self.env = env if env is not None else get_env_settings()
         self.accounting_period = format_reporting_period(self.env)
@@ -60,14 +62,20 @@ class BaseAccounting:
     @gspread_retry
     def get_period_column(self, worksheet, start_col=2, static_headers=None, headers=None):
         """Standardized logic to find or add the reporting period column in Row 1.
+        Snapshot sources always target the current month.
         Default: Descending lexicographical order (newest first).
         """
+        target_period = self.accounting_period
+        if self.is_snapshot:
+            from .utils import get_current_month_period
+            target_period = get_current_month_period()
+            
         if headers is None:
             headers = worksheet.row_values(1)
         
         # 1. Existing?
-        if self.accounting_period in headers:
-            return headers.index(self.accounting_period) + 1
+        if target_period in headers:
+            return headers.index(target_period) + 1
 
         # 2. Find insertion point (Descending: newest in column 2)
         y_pos = start_col
@@ -78,14 +86,14 @@ class BaseAccounting:
                 if header == "" or header == "TOTAL": break
                 
                 # Descending logic: if current header is smaller than new period, insert here
-                if header < self.accounting_period:
+                if header < target_period:
                     y_pos = i + 1
                     break
                 else:
                     y_pos = i + 2
         
-        print(f"\tAdding period '{self.accounting_period}' at column {y_pos}")
-        worksheet.insert_cols([[self.accounting_period]], y_pos, value_input_option='RAW', inherit_from_before=True)
+        print(f"\tAdding period '{target_period}' at column {y_pos}")
+        worksheet.insert_cols([[target_period]], y_pos, value_input_option='RAW', inherit_from_before=True)
         return y_pos
 
     def get_item_row(self, worksheet, item_name, start_row=2, first_col_index=1, all_values=None, descending=False):
@@ -184,9 +192,27 @@ class BaseAccounting:
         if period_col is None:
             period_col = self.get_period_column(worksheet, headers=headers)
 
-        # 5. Prepare Batch Updates
+        # 4b. Snapshot Timestamp: Write to Row 2 if in snapshot mode
+        effective_start_row = start_row
         cells_to_update = []
-        
+        if self.is_snapshot:
+            # For snapshots, Row 1 is Period Name, Row 2 is Timestamp, Data starts at Row 3
+            timestamp_str = datetime.datetime.now().strftime("%d/%m/%Y")
+            cells_to_update.append(gspread.Cell(2, period_col, timestamp_str))
+            
+            # Ensure Column A has a label for this header if it's empty
+            if len(existing_labels) < 2 or not existing_labels[1]:
+                worksheet.update('A2', [["Last Update"]], value_input_option='RAW')
+                if len(existing_labels) < 2:
+                    existing_labels.append("Last Update")
+                else:
+                    existing_labels[1] = "Last Update"
+            
+            # We enforce start_row=3 for snapshots if it was 2
+            if effective_start_row == 2:
+                effective_start_row = 3
+
+        # 5. Prepare Batch Updates
         # Track if we need to insert any NEW rows (labels not in existing_labels)
         new_items = []
         for label, value in data_map.items():
@@ -201,7 +227,7 @@ class BaseAccounting:
             new_items.sort(key=lambda x: x[0])
             for label, value in new_items:
                 # Find insertion row
-                row_idx = self.get_item_row(worksheet, label, start_row=start_row, all_values=all_values)
+                row_idx = self.get_item_row(worksheet, label, start_row=effective_start_row, all_values=all_values)
                 print(f"\tInserting new label '{label}' at row {row_idx}")
                 worksheet.insert_row([label], index=row_idx)
                 # We must update local existing_labels to track indices for subsequent cells in this batch
