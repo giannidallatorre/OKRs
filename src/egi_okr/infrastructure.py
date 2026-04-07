@@ -90,6 +90,8 @@ from .base_accounting import BaseAccounting
 class TemplatesAccounting(BaseAccounting):
     """Module for VM templates (images) accounting and reporting."""
     
+    is_snapshot = True
+    
     def __init__(self, env=None):
         super().__init__(env)
         self.inf_manager = InfrastructureManager(env=self.env)
@@ -124,9 +126,10 @@ class TemplatesAccounting(BaseAccounting):
         # 2. Print or Write
         if dry_run or self.print_mode:
             status = "(Print Mode)" if self.print_mode else "(Dry Run)"
-            print(colourise("green", f"\t{status}: Found {total_images} images across {len(sites)} sites"))
+            tag = " [CURRENT]" if os.environ.get('IS_SNAPSHOT_RUN') == 'True' else ""
+            print(colourise("green", f"\t{status}: Found {total_images} images across {len(sites)} sites{tag}"))
             for res in results:
-                print(f"\t- {res['name']}: {res['count']} images")
+                print(f"\t- {res['name']}: {res['count']} images{tag}")
             return
             
         if not worksheet:
