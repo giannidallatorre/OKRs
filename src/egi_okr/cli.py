@@ -41,6 +41,18 @@ def run_module(module_class, print_mode: bool, scope: Optional[str] = None, date
         env['DATE_TO'] = date_to
         
     module = module_class(env=env)
+    
+    # Snapshot Logic: Warning & Labeling
+    if module.is_snapshot:
+        from .utils import get_current_month_period
+        current_period = get_current_month_period()
+        # If user provided a date_to that doesn't match current month, warn them
+        if date_to and date_to != current_period:
+             print(colourise("yellow", f"Warning: The data for {module_class.__name__} is a live snapshot and does not reflect the requested period ({date_to})."))
+        
+        if print_mode:
+            os.environ['IS_SNAPSHOT_RUN'] = 'True'
+            
     module.run()
 
 @app.command()
